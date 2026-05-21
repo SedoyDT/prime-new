@@ -1,0 +1,1863 @@
+diff --git a/library/App/SalesFunnel/Lead/Services/CreationStrategy/LeadByCallCreationService.php b/library/App/SalesFunnel/Lead/Services/CreationStrategy/LeadByCallCreationService.php
+index 5b1094ef7a..05d4ab144d 100644
+--- a/library/App/SalesFunnel/Lead/Services/CreationStrategy/LeadByCallCreationService.php
++++ b/library/App/SalesFunnel/Lead/Services/CreationStrategy/LeadByCallCreationService.php
+@@ -157,6 +157,7 @@ class LeadByCallCreationService {
+     {
+         $lead = null;
+ 
++        $call->recordStatus = 6;
+         if (!$this->validateCall($call)) {
+             return null;
+         }
+@@ -167,93 +168,24 @@ class LeadByCallCreationService {
+ 
+         // если правило создания не передано, тогда пытаемся найти правило создания в бд по id звонка
+         if (is_null($creationRule)) {
+-            $creationRule = $this->creationRuleRepository->findByCallid($call->atsCallid);
+-            if (!$creationRule->isPersistent()) {
+-                $creationRule = null;
+-            }
+-        }
+-
+-        // запуск создания по правилу создания
+-        if (!is_null($creationRule)) {
+-            // нужно создать лид
+-            if ($creationRule->getCreateNew()) {
+-                $lead = $this->leadFactory->fromAtsCallid($call->atsCallid);
+-                if (
+-                    // лида нет
+-                    !$lead->getEntity()->isPersistent() ||
+-                    // звонок прикрепился к существующему лиду с несколькими звонками,
+-                    (new \App\SalesFunnel\Lead\Relation\Query())
+-                        ->byRelationType(\App_Constant_Table_SalesFunnelLeadRelationType::TYPE_CALL)
+-                        ->byLeadId([$lead->getEntity()->getId()])
+-                        ->count() > 1
+-                ) {
+-                    $lead = $this->createLeadModelFromCall($call);
+-                }
+-
+-                // при работе createLeadModelFromCall может получиться null
+-                if (!is_null($lead)) {
+-                    $lead->getEntity()->setTitle($creationRule->getLeadTitle());
+-                }
+-            }
+-            // нужно прикрепить звонок к лиду
+-            else if ($creationRule->getTargetLeadId())
+-            {
+-                $lead = $this->leadFactory->fromId($creationRule->getTargetLeadId());
+-
+-                $lead->getPhoneCollection()->addIfNotExists(
+-                    $this->leadPhoneFactory
+-                        ->emptyModel()
+-                        ->setPhone($call->getPhoneList()[0])
+-                );
+-            }
++            [$lead, $creationRule] = $this->applyCreationRuleEffects($call);
+         }
+ 
+         // алгоритм по умолчанию, если правило создания не отработало
+         if (is_null($lead)) {
+-            $lead = $this->leadFactory->findLeadByCallParams(
+-                $call->getPhoneList()[0],
+-                $call->manager,
+-                DateTimeImmutable::createFromFormat(MYSQL_DATETIME_FORMAT, $call->date)
+-            );
+-
+-            if ($lead->getEntity()->isPersistent()) {
+-                // пробуем добавить телефон из звонка
+-                $lead->getPhoneCollection()->addIfNotExists(
+-                    $this->leadPhoneFactory
+-                        ->emptyModel()
+-                        ->setPhone($call->getPhoneList()[0])
+-                );
+-            }
+-            // подходящая для привязки модель не найдена
+-            else {
+-                $lead = $this->createLeadModelFromCall($call);
+-            }
++            $lead = $this->defaultLeadCreation($call);
+         }
+ 
+         if (!is_null($lead)) {
+             $isNew = $lead->isNew();
+ 
+             if ($call->isAdvertising && $isNew) {
+-                $lead->getEntity()->setIsAdvertising(true);
+-                if (!$lead->getEntity()->getAdvertisingPlatformId()) {
+-                    $lead->getEntity()->setAdvertisingPlatformId($call->advertisingPlatformId);
+-                }
++                $lead = $this->setIsAdvertising($lead, $call);
+             }
+ 
+-            $this->leadCrud->saveModel($lead);
+-
+             // передача лида активному замещающему, если у воронки включена настройка
+             if ($isNew && $lead->getFunnel()->getEntity()->getGeneralConsiderVacations()) {
+-                $leadOwner = $lead->getEntity()->getUserId();
+-                $substitutes = \App_Db_Vacations::obtain()->getUsersSubstitutes([$leadOwner]);
+-                if(!empty($substitutes)) {
+-                    $previous = \App_Db_Users::obtain()->getUserName($lead->getEntity()->getUserId());
+-                    $reason = $this->eventGenerator->getEventReason();
+-                    $this->eventGenerator->setEventReason('отпуск изначального сотрудника: ' . $previous);
+-                    $lead->changeOwner($substitutes[$leadOwner][0]);
+-                    $this->leadCrud->saveModel($lead);
+-                    $this->eventGenerator->setEventReason($reason);
+-                }
++                $lead = $this->setSubstitutes($lead);
+             }
+ 
+             $relationEntity = $this->relationManager->addRelationOrUpdateLead(
+@@ -268,64 +200,15 @@ class LeadByCallCreationService {
+ 
+             // прикрепляем напоминания и задачи, если надо
+             if ($isNew && $creationRule) {
+-                if ($creationRule->getCalendarNotification()) {
+-                    foreach ($creationRule->getCalendarNotification() as $item) {
+-                        $this->relationManager->addRelationOrUpdateLead(
+-                            \App_Constant_Table_SalesFunnelLeadRelationType::TYPE_CALENDAR_NOTIFICATION,
+-                            $lead->getEntity()->getId(),
+-                            $item
+-                        );
+-                    }
+-                }
+-                if ($creationRule->getStaffTask()) {
+-                    foreach ($creationRule->getStaffTask() as $item) {
+-                        $this->relationManager->addRelationOrUpdateLead(
+-                            \App_Constant_Table_SalesFunnelLeadRelationType::TYPE_STAFF_TASK,
+-                            $lead->getEntity()->getId(),
+-                            $item
+-                        );
+-                    }
+-                }
+-
+-                // если лид создан по правилу, тогда пробуем перевести лид на этап выбранный пользователем
+-                // изменение этапа происходит отдельным действием, чтобы в логе была отдельная запись
+-                if ($creationRule->getCreateNew() && $creationRule->getNextStageId()) {
+-                    $lead->moveOnStage($this->stageFactory->fromId($creationRule->getNextStageId()));
+-                }
+-
+-                // если лид создан по правилу, тогда пробуем передать лид выбранному пользователю
+-                // изменение владельца и исполнителя происходит отдельным действием, чтобы в логе была отдельная запись
+-                if ($creationRule->getCreateNew() && $creationRule->getNextOwnerId()) {
+-                    $lead->changeOwner($creationRule->getNextOwnerId());
+-                }
+-
+-                if ($creationRule->getSurveyAnswer()) {
+-                    $surveyAnswerForm = new AnswerForm();
+-                    $surveyAnswer = ['leadId' => $lead->getEntity()->getId()] + $creationRule->getSurveyAnswer();
+-                    if (!$surveyAnswerForm->isValid($surveyAnswer)) {
+-                        throw new RuntimeException('Ошибка опроса: ' . json_encode($surveyAnswerForm->getMessages(), JSON_UNESCAPED_UNICODE));
+-                    }
+-
+-                    $this->surveyAnswerHandler->passSurvey($surveyAnswerForm);
+-                }
+-
+-                if ($creationRule->getCreateNew() && $creationRule->getProps()) {
+-                    $this->leadPropUpdater->updatePropValues($lead->getProps(), $creationRule->getProps());
+-                    $this->leadPropRepo->savePropValueStorage($lead->getProps());
+-                }
+-
+-                $prevEventAuthor = $this->eventGenerator->getEventAuthor();
+-                if ($creationRule->getCreatedBy()) {
+-                    $this->eventGenerator->setEventAuthor($creationRule->getCreatedBy());
+-                }
+-                $this->leadCrud->saveModel($lead);
+-                $this->eventGenerator->setEventAuthor($prevEventAuthor);
++                $lead = $this->setTasks($lead, $creationRule);
+             }
+ 
+             // удаление отработанного правила обработки звонка
+             if (!is_null($creationRule) && $creationRule->getId()) {
+                 $this->creationRuleRepository->remove($creationRule);
+             }
++
++            $this->leadCrud->saveModel($lead);
+         }
+ 
+         return $lead;
+@@ -528,4 +411,197 @@ class LeadByCallCreationService {
+ 
+         return null;
+     }
++
++    /**
++     * @param $call
++     * @return array|null
++     * @throws \Zend_Db_Statement_Exception
++     */
++    public function applyCreationRuleEffects($call): ?array
++    {
++        $lead = null;
++        $creationRule = $this->creationRuleRepository->findByCallid($call->atsCallid);
++        
++        if (!$creationRule->isPersistent()) {
++            $creationRule = null;
++        }
++
++        // запуск создания по правилу создания
++        if (!is_null($creationRule)) {
++            // нужно создать лид
++            if ($creationRule->getCreateNew()) {
++                $lead = $this->leadFactory->fromAtsCallid($call->atsCallid);
++                if (
++                    // лида нет
++                    !$lead->getEntity()->isPersistent() ||
++                    // звонок прикрепился к существующему лиду с несколькими звонками,
++                    (new \App\SalesFunnel\Lead\Relation\Query())
++                        ->byRelationType(\App_Constant_Table_SalesFunnelLeadRelationType::TYPE_CALL)
++                        ->byLeadId([$lead->getEntity()->getId()])
++                        ->count() > 1
++                ) {
++                    $lead = $this->createLeadModelFromCall($call);
++                }
++
++                // при работе createLeadModelFromCall может получиться null
++                if (!is_null($lead)) {
++                    $lead->getEntity()->setTitle($creationRule->getLeadTitle());
++                }
++            }
++            // нужно прикрепить звонок к лиду
++            else if ($creationRule->getTargetLeadId())
++            {
++                $lead = $this->leadFactory->fromId($creationRule->getTargetLeadId());
++
++                if (!empty($call->getPhoneList())) {
++                    $lead->getPhoneCollection()->addIfNotExists(
++                        $this->leadPhoneFactory
++                            ->emptyModel()
++                            ->setPhone($call->getPhoneList()[0])
++                    );
++                }
++            }
++        }
++        
++        return [$lead, $creationRule];
++    }
++
++    /**
++     * @param $call
++     * @return Model|null
++     * @throws \Zend_Db_Select_Exception
++     * @throws \Zend_Db_Statement_Exception
++     */
++    public function defaultLeadCreation($call): ?Model
++    {
++        $lead = null;
++        if (!empty($call->getPhoneList())) {
++            $lead = $this->leadFactory->findLeadByCallParams(
++                $call->getPhoneList()[0],
++                $call->manager,
++                DateTimeImmutable::createFromFormat(MYSQL_DATETIME_FORMAT, $call->date)
++            );
++
++            if ($lead->getEntity()->isPersistent()) {
++                // пробуем добавить телефон из звонка
++                $lead->getPhoneCollection()->addIfNotExists(
++                    $this->leadPhoneFactory
++                        ->emptyModel()
++                        ->setPhone($call->getPhoneList()[0])
++                );
++            }
++            // подходящая для привязки модель не найдена
++            else {
++                $lead = $this->createLeadModelFromCall($call);
++            }
++        }
++
++
++        return $lead;
++    }
++
++
++    /**
++     * @param $lead
++     * @param $call
++     * @return Model|null
++     * @throws Exception
++     */
++    public function setIsAdvertising($lead, $call): ?Model
++    {
++        $lead->getEntity()->setIsAdvertising(true);
++        if (!$lead->getEntity()->getAdvertisingPlatformId()) {
++            $lead->getEntity()->setAdvertisingPlatformId($call->advertisingPlatformId);
++        }
++
++        $this->leadCrud->saveModel($lead);
++
++        return $lead;
++    }
++
++    /**
++     * @param $lead
++     * @return Model|null
++     * @throws \Zend_Db_Statement_Exception
++     */
++    public function setSubstitutes($lead): ?Model
++    {
++        $leadOwner = $lead->getEntity()->getUserId();
++        $substitutes = \App_Db_Vacations::obtain()->getUsersSubstitutes([$leadOwner]);
++        if(!empty($substitutes)) {
++            $previous = \App_Db_Users::obtain()->getUserName($lead->getEntity()->getUserId());
++            $reason = $this->eventGenerator->getEventReason();
++            $this->eventGenerator->setEventReason('отпуск изначального сотрудника: ' . $previous);
++            $lead->changeOwner($substitutes[$leadOwner][0]);
++            $this->leadCrud->saveModel($lead);
++            $this->eventGenerator->setEventReason($reason);
++        }
++
++        return $lead;
++    }
++
++    /**
++     * @param $lead
++     * @param $creationRule
++     * @return Model|null
++     * @throws \App_Network_Sender_Exception
++     * @throws \Zend_Form_Exception
++     */
++    public function setTasks($lead, $creationRule): ?Model
++    {
++        if ($creationRule->getCalendarNotification()) {
++            foreach ($creationRule->getCalendarNotification() as $item) {
++                $this->relationManager->addRelationOrUpdateLead(
++                    \App_Constant_Table_SalesFunnelLeadRelationType::TYPE_CALENDAR_NOTIFICATION,
++                    $lead->getEntity()->getId(),
++                    $item
++                );
++            }
++        }
++        if ($creationRule->getStaffTask()) {
++            foreach ($creationRule->getStaffTask() as $item) {
++                $this->relationManager->addRelationOrUpdateLead(
++                    \App_Constant_Table_SalesFunnelLeadRelationType::TYPE_STAFF_TASK,
++                    $lead->getEntity()->getId(),
++                    $item
++                );
++            }
++        }
++
++        // если лид создан по правилу, тогда пробуем перевести лид на этап выбранный пользователем
++        // изменение этапа происходит отдельным действием, чтобы в логе была отдельная запись
++        if ($creationRule->getCreateNew() && $creationRule->getNextStageId()) {
++            $lead->moveOnStage($this->stageFactory->fromId($creationRule->getNextStageId()));
++        }
++
++        // если лид создан по правилу, тогда пробуем передать лид выбранному пользователю
++        // изменение владельца и исполнителя происходит отдельным действием, чтобы в логе была отдельная запись
++        if ($creationRule->getCreateNew() && $creationRule->getNextOwnerId()) {
++            $lead->changeOwner($creationRule->getNextOwnerId());
++        }
++
++        if ($creationRule->getSurveyAnswer()) {
++            $surveyAnswerForm = new AnswerForm();
++            $surveyAnswer = ['leadId' => $lead->getEntity()->getId()] + $creationRule->getSurveyAnswer();
++            if (!$surveyAnswerForm->isValid($surveyAnswer)) {
++                throw new RuntimeException('Ошибка опроса: ' . json_encode($surveyAnswerForm->getMessages(), JSON_UNESCAPED_UNICODE));
++            }
++
++            $this->surveyAnswerHandler->passSurvey($surveyAnswerForm);
++        }
++
++        if ($creationRule->getCreateNew() && $creationRule->getProps()) {
++            $this->leadPropUpdater->updatePropValues($lead->getProps(), $creationRule->getProps());
++            $this->leadPropRepo->savePropValueStorage($lead->getProps());
++        }
++
++        $prevEventAuthor = $this->eventGenerator->getEventAuthor();
++        if ($creationRule->getCreatedBy()) {
++            $this->eventGenerator->setEventAuthor($creationRule->getCreatedBy());
++        }
++        $this->leadCrud->saveModel($lead);
++        $this->eventGenerator->setEventAuthor($prevEventAuthor);
++
++        return $lead;
++    }
+ }
+\ No newline at end of file
+diff --git a/library/App/SalesFunnel/Resource/Events/MissedCallCreatedResource.php b/library/App/SalesFunnel/Resource/Events/MissedCallCreatedResource.php
+index 9df60c538c..114d670944 100644
+--- a/library/App/SalesFunnel/Resource/Events/MissedCallCreatedResource.php
++++ b/library/App/SalesFunnel/Resource/Events/MissedCallCreatedResource.php
+@@ -2,18 +2,15 @@
+ /**
+  * Все права на программный код принадлежат ООО "ПИАР СИТИ"
+  *
+- * @author Kononov Vladimir
+- * @date 08.04.2022
++ * @author Frolov Anatolui
++ * @date 04.09.2025
+  * @copyright Copyright (c) ООО "Пиар Сити" project AMDSolution
+  */
+ 
+ namespace App\SalesFunnel\Resource\Events;
+ 
+ 
+-use App\Call\Transcripption\EnabledTagsValidator;
+ use App\Helper\DurationFormatter;
+-use App\RechkaAI\AudioPlayerTranscriptAdapter;
+-use App\RechkaAI\Repositories\RechkaAiTaskRepository;
+ use App\SalesFunnel\Permission\CallRecordsPermission;
+ use App\SalesFunnel\Resource\AdvertisingPlatform;
+ use ArrayObject;
+@@ -23,18 +20,11 @@ use Zend_Controller_Router_Interface;
+ class MissedCallCreatedResource
+ {
+ 
+-
+-
+     /**
+      * @var CallRecordsPermission
+      */
+     private $permission;
+ 
+-    /**
+-     * @var AdvertisingPlatform
+-     */
+-    private $advertisingPlatform;
+-
+     /**
+      * @var array | null
+      */
+@@ -45,27 +35,14 @@ class MissedCallCreatedResource
+      */
+     private $router;
+ 
+-    /**
+-     * @var RechkaAiTaskRepository
+-     */
+-    private $rechkaAiTaskRepository;
+-    /**
+-     * @var AudioPlayerTranscriptAdapter
+-     */
+-    private $audioPlayerTranscriptAdapter;
+-
+ 
+     public function __construct(
+         CallRecordsPermission $permission,
+         AdvertisingPlatform   $advertisingPlatform,
+-        RechkaAiTaskRepository $rechkaAiTaskRepository,
+-        AudioPlayerTranscriptAdapter $audioPlayerTranscriptAdapter
+     )
+     {
+         $this->permission          = $permission;
+         $this->advertisingPlatform = $advertisingPlatform;
+-        $this->rechkaAiTaskRepository = $rechkaAiTaskRepository;
+-        $this->audioPlayerTranscriptAdapter = $audioPlayerTranscriptAdapter;
+     }
+ 
+     /**
+@@ -100,8 +77,6 @@ class MissedCallCreatedResource
+                 'duration',
+                 'direction',
+                 'date',
+-                'atsRecordUuid' => 'ats_record_uuid',
+-                'atsRating'     => 'ats_rating',
+                 'isAdvertising' => 'is_advertising'
+             ],
+             [
+@@ -126,19 +101,6 @@ class MissedCallCreatedResource
+         $data['phone'] = $callPhone;
+         $data['user'] = \App_Db_Users::obtain()->getUserName($call->manager);
+         $data['duration'] = DurationFormatter::secondToHours($call->duration);
+-
+-        $data['atsRecordAllowed'] = (is_null($this->getCallAuthorRestriction()) || in_array($call->manager, $this->getCallAuthorRestriction()));
+-        $data['atsRecordUrl'] = null;
+-        if ($data['atsRecordAllowed']) {
+-            $data['atsRecordUrl'] = \App_Project_Repository::getInstance()->getProject(24)->getFullUrl() . '/external-link/ats-event/file/' . $call->atsRecordUuid;
+-        }
+-        $data['atsRating'] = empty($call->atsRating) ? null : (int) $call->atsRating;
+-
+-        $data['callDate'] = $call->date;
+-
+-        $data['isAdvertising']       = (bool)$call->isAdvertising;
+-        $data['advertisingPlatform'] = $this->advertisingPlatform->generateById($call->advertisingPlatformId);
+-
+         $data['incoming'] = ($call->direction == \App_Constant_Table_CallRegistryDirections::IN);
+         $data['outgoing'] = ($call->direction == \App_Constant_Table_CallRegistryDirections::OUT);
+         $data['callUrl'] = $this->getRouter()->assemble(
+@@ -146,59 +108,7 @@ class MissedCallCreatedResource
+             $call->direction == \App_Constant_Table_CallRegistryDirections::IN ? "callin_id" : "callout_id"
+         );
+ 
+-        $transcription = \App_Db_CallTranscription::obtain()->getByCallId($call->id);
+-        $tags = [];
+-        $fragmentTags = [];
+-        $tagFilter = new EnabledTagsValidator(\App_User_Wrapper::getInstance()->getRole());
+-        foreach (json_decode($transcription['tags'], true) ?? [] as $tag) {
+-            if (
+-                $tag['tagType'] === 'upload' ||
+-                !$tag['visible'] ||
+-                !$tagFilter->isValid($tag['name'])
+-            ) {
+-                continue;
+-            }
+-
+-            if (!array_key_exists($tag['name'], $tags)) {
+-                $tags[$tag['name']]['count'] = 0;
+-            }
+-            $tags[$tag['name']]['count'] += 1;
+-            $tags[$tag['name']]['val'] = $tag['value'] ?: '';
+-
+-            if (!empty($tag['fragment'])) {
+-                $fragmentTags[] = $tag;
+-            }
+-        }
+-
+-        $transcriptionIsReady = $transcription && $transcription['is_ready'] == 1;
+-        $decodedTranscription = $transcription ? json_decode($transcription['transcription']) : null;
+-        $decodedComments = $transcription ? json_decode($transcription['imotio_comment']) : null;
+-
+-        $rechkaTask = $this->rechkaAiTaskRepository->findByCallId($call->id);
+-        if (
+-            $rechkaTask &&
+-            $rechkaTask->isDone() &&
+-            ($taskResult = $rechkaTask->getTaskResult()) &&
+-            !empty($taskResult->getAdvanceTranscriptData())
+-        ) {
+-            $transcriptionIsReady = true;
+-            $decodedTranscription = $this->audioPlayerTranscriptAdapter->getFromTaskResult(
+-                $taskResult
+-            );
+-        }
+ 
+-        $data['transcription'] = empty($transcription) && empty($rechkaTask) ? null : [
+-            'transcription' => !empty($decodedTranscription) ? $decodedTranscription : null,
+-            'isReady'       => $transcriptionIsReady,
+-            'tags'          => !empty($tags) ? $tags : null,
+-            'fragmentTags'  => !empty($fragmentTags) ? $fragmentTags : null,
+-            'comments'      => !empty($decodedComments) ? $decodedComments : null,
+-        ];
+-
+-        if (\App_Access::get("access", "call>call_analysis>access")) {
+-            $data['rechkaTaskExists'] = \App_Db_RechkaaiTask::obtain()->isTaskExists($call->id);
+-            $data['callAnalysisUrl'] = "/call/call-analysis/?callId={$call->id}";
+-        }
+ 
+         return $data;
+     }
+diff --git a/library/App/SalesFunnel/Resource/LeadEvent.php b/library/App/SalesFunnel/Resource/LeadEvent.php
+index c4847c1c64..7d5b0aa99a 100644
+--- a/library/App/SalesFunnel/Resource/LeadEvent.php
++++ b/library/App/SalesFunnel/Resource/LeadEvent.php
+@@ -17,6 +17,7 @@ use App\SalesFunnel\Discussion\Message\Repository as DiscussionMessageRepository
+ use App\SalesFunnel\LeadLog\Reason\ReasonRepository;
+ use App\SalesFunnel\Resource\Events\LeadCreationResource;
+ use App\SalesFunnel\Resource\Events\LeadStageChangeResource;
++use App\SalesFunnel\Resource\Events\MissedCallCreatedResource;
+ use App\SalesFunnel\Resource\Events\OwnershipTransferResource;
+ use App\SalesFunnel\Resource\Events\RelationWithAgreementListResource;
+ use App\SalesFunnel\Resource\Events\RelationWithAvitoChatMessageResource;
+@@ -192,6 +193,10 @@ class LeadEvent
+      */
+     private $leadCreationResource;
+ 
++    /**
++     * @var Events\MissedCallCreatedResource
++     */
++    private $missedCallCreatedResource;
+ 
+     public function __construct(
+         RelationWithAgreementListResource                  $relationWithAgreementListResource,
+@@ -222,7 +227,8 @@ class LeadEvent
+         Events\RelationWithEdnaMessageResource             $relationWithEdnaMessageResource,
+         Events\LeadPropValueChangedResource                $leadPropValueChangedResource,
+         Events\ChildLeadCreatedResource                    $childLeadCreatedResource,
+-        LeadCreationResource                               $leadCreationResource
++        LeadCreationResource                               $leadCreationResource,
++        MissedCallCreatedResource                          $missedCallCreatedResource
+     ) {
+         $this->relationWithAgreementListResource           = $relationWithAgreementListResource;
+         $this->relationWithInvoiceResource                 = $relationWithInvoiceResource;
+@@ -253,6 +259,7 @@ class LeadEvent
+         $this->leadPropValueChangedResource                = $leadPropValueChangedResource;
+         $this->childLeadCreatedResource                    = $childLeadCreatedResource;
+         $this->leadCreationResource                        = $leadCreationResource;
++        $this->missedCallCreatedResource                   = $missedCallCreatedResource;
+     }
+ 
+     public function getRouter()
+@@ -308,6 +315,8 @@ class LeadEvent
+                 break;
+ 
+             case \App\Event\SalesFunnel\Type\Relation\MissedCallCreated::class:
++                $data =  $this->missedCallCreatedResource->generate($data);
++                break;
+             case \App\Event\SalesFunnel\Type\Relation\MissedCallDeleted::class:
+             case QuantityControl\LeadConfirmed::class:
+             case QuantityControl\ClosedWithoutDealConfirmed::class:
+diff --git a/public/css/scss/app/application/client/client-timeline.css b/public/css/scss/app/application/client/client-timeline.css
+index 67571788fe..3df41aef24 100644
+--- a/public/css/scss/app/application/client/client-timeline.css
++++ b/public/css/scss/app/application/client/client-timeline.css
+@@ -191,6 +191,199 @@
+   color: #000000;
+ }
+ 
++#j-player-not-found {
++  display: none;
++}
++
++.amd-event-missed-call-added__event {
++  width: 100%;
++  border: 1px solid;
++  border-top-width: 0;
++  border-bottom-width: 0;
++  background-color: white;
++  display: none;
++  box-sizing: border-box;
++}
++.amd-event-missed-call-added__event_visible {
++  display: flex;
++  flex-direction: column;
++}
++.amd-event-missed-call-added__event_first {
++  border-top-width: 1px;
++}
++.amd-event-missed-call-added__event_last {
++  border-bottom-width: 1px;
++}
++.amd-event-missed-call-added__event_searched-for {
++  background-color: wheat;
++  color: black;
++}
++.amd-event-missed-call-added__event-row {
++  display: flex;
++}
++.amd-event-missed-call-added__event-comments {
++  margin-bottom: 5px;
++  margin-left: 9px;
++}
++.amd-event-missed-call-added__accordion {
++  flex-direction: column;
++  display: flex;
++  width: 100%;
++}
++.amd-event-missed-call-added__accordion::before {
++  content: "";
++  margin: 0 10px;
++  height: 2px;
++  border: 1px solid;
++  border-bottom-width: 0;
++  flex-grow: 1;
++}
++.amd-event-missed-call-added__accordion::after {
++  content: "";
++  margin: 0 5px;
++  height: 2px;
++  border: 1px solid;
++  border-bottom-width: 0;
++  flex-grow: 1;
++}
++.amd-event-missed-call-added__icon-wrapper {
++  flex: 0 0 20px;
++  padding: 5px;
++}
++.amd-event-missed-call-added__icon {
++  padding: 5px;
++  border: 2px solid;
++  border-radius: 20px;
++  background-color: white;
++}
++.amd-event-missed-call-added__icon::before {
++  content: "\f095";
++  font-family: "Font Awesome 5 Free", serif;
++  font-weight: 900;
++  font-style: normal;
++  font-variant: normal;
++  text-rendering: auto;
++  line-height: 1;
++  font-size: 20px;
++  border-radius: 4px;
++}
++.amd-event-missed-call-added__icon_incoming {
++  border-color: #d9534f;
++  color: #d9534f;
++}
++.amd-event-missed-call-added__icon_outgoing {
++  border-color: #337ab7;
++  color: #337ab7;
++}
++.amd-event-missed-call-added__is-advertising {
++  color: darkgoldenrod;
++  position: relative;
++  top: -19px;
++  left: 22px;
++  background: white;
++  display: flex;
++  width: 21px;
++  height: 21px;
++  border-radius: 12px;
++}
++.amd-event-missed-call-added__is-advertising > * {
++  margin: auto;
++  font-weight: 900;
++  font-style: normal;
++  font-variant: normal;
++  text-rendering: auto;
++  line-height: 1;
++  font-size: 20px;
++}
++.amd-event-missed-call-added__content {
++  flex: 1 0;
++  flex-direction: column;
++  display: flex;
++  padding: 5px;
++}
++.amd-event-missed-call-added__call-top {
++  margin-bottom: 5px;
++  display: flex;
++  column-gap: 0.5rem;
++}
++.amd-event-missed-call-added__call-bottom {
++  color: black;
++  font-size: 1.1em;
++  display: flex;
++  flex-direction: row;
++  align-items: center;
++  column-gap: 10px;
++}
++.amd-event-missed-call-added__counter {
++  padding: 3px 8px;
++  font-size: 0.9rem;
++  font-weight: bold;
++  border-radius: 3px;
++  text-align: center;
++  text-decoration: none;
++  display: inline-block;
++  user-select: none;
++}
++.amd-event-missed-call-added__counter_incoming {
++  color: #5cb85c;
++  background: #FFFFFF;
++  border: 1px solid #5cb85c;
++}
++.amd-event-missed-call-added__counter_outgoing {
++  color: #337ab7;
++  background: #FFFFFF;
++  border: 1px solid #337ab7;
++}
++.amd-event-missed-call-added__toggle-btn {
++  padding: 3px 4px;
++}
++.amd-event-missed-call-added__play-btn {
++  font-family: FontAwesome, serif;
++  font-weight: 900;
++  font-size: 20px;
++  cursor: pointer;
++}
++.amd-event-missed-call-added__play-btn:hover {
++  color: #5cb85c;
++}
++.amd-event-missed-call-added__play-btn::before {
++  content: "\f144";
++}
++.amd-event-missed-call-added__play-btn_disabled {
++  cursor: default;
++  color: rgba(93, 93, 93, 0.85);
++}
++.amd-event-missed-call-added__play-btn_disabled:hover {
++  color: #5D5D5D;
++}
++.amd-event-missed-call-added__accordion-controls {
++  border: 1px solid;
++  border-bottom: 0;
++  width: 100%;
++  padding: 5px;
++  box-sizing: border-box;
++  display: flex;
++  flex-direction: row;
++  column-gap: 5px;
++}
++.amd-event-missed-call-added__rating {
++  background: #df9cff;
++  border-radius: 4px;
++  padding: 4px;
++}
++.amd-event-missed-call-added__tag {
++  display: inline-flex;
++  flex-direction: row;
++  align-items: center;
++  justify-content: center;
++  column-gap: 5px;
++  margin: 2px 5px 2px 0;
++  background-color: #E4E4E4;
++  padding: 4px;
++  white-space: nowrap;
++  color: #000000;
++}
++
+ .events-group-component__stack {
+   flex-direction: column;
+   display: flex;
+diff --git a/public/css/scss/app/application/sales-funnel/lead-ownership-transfer.css b/public/css/scss/app/application/sales-funnel/lead-ownership-transfer.css
+index 05e86ce805..0c5ffa55e7 100644
+--- a/public/css/scss/app/application/sales-funnel/lead-ownership-transfer.css
++++ b/public/css/scss/app/application/sales-funnel/lead-ownership-transfer.css
+@@ -828,6 +828,199 @@
+   color: #000000;
+ }
+ 
++#j-player-not-found {
++  display: none;
++}
++
++.amd-event-missed-call-added__event {
++  width: 100%;
++  border: 1px solid;
++  border-top-width: 0;
++  border-bottom-width: 0;
++  background-color: white;
++  display: none;
++  box-sizing: border-box;
++}
++.amd-event-missed-call-added__event_visible {
++  display: flex;
++  flex-direction: column;
++}
++.amd-event-missed-call-added__event_first {
++  border-top-width: 1px;
++}
++.amd-event-missed-call-added__event_last {
++  border-bottom-width: 1px;
++}
++.amd-event-missed-call-added__event_searched-for {
++  background-color: wheat;
++  color: black;
++}
++.amd-event-missed-call-added__event-row {
++  display: flex;
++}
++.amd-event-missed-call-added__event-comments {
++  margin-bottom: 5px;
++  margin-left: 9px;
++}
++.amd-event-missed-call-added__accordion {
++  flex-direction: column;
++  display: flex;
++  width: 100%;
++}
++.amd-event-missed-call-added__accordion::before {
++  content: "";
++  margin: 0 10px;
++  height: 2px;
++  border: 1px solid;
++  border-bottom-width: 0;
++  flex-grow: 1;
++}
++.amd-event-missed-call-added__accordion::after {
++  content: "";
++  margin: 0 5px;
++  height: 2px;
++  border: 1px solid;
++  border-bottom-width: 0;
++  flex-grow: 1;
++}
++.amd-event-missed-call-added__icon-wrapper {
++  flex: 0 0 20px;
++  padding: 5px;
++}
++.amd-event-missed-call-added__icon {
++  padding: 5px;
++  border: 2px solid;
++  border-radius: 20px;
++  background-color: white;
++}
++.amd-event-missed-call-added__icon::before {
++  content: "\f095";
++  font-family: "Font Awesome 5 Free", serif;
++  font-weight: 900;
++  font-style: normal;
++  font-variant: normal;
++  text-rendering: auto;
++  line-height: 1;
++  font-size: 20px;
++  border-radius: 4px;
++}
++.amd-event-missed-call-added__icon_incoming {
++  border-color: #d9534f;
++  color: #d9534f;
++}
++.amd-event-missed-call-added__icon_outgoing {
++  border-color: #337ab7;
++  color: #337ab7;
++}
++.amd-event-missed-call-added__is-advertising {
++  color: darkgoldenrod;
++  position: relative;
++  top: -19px;
++  left: 22px;
++  background: white;
++  display: flex;
++  width: 21px;
++  height: 21px;
++  border-radius: 12px;
++}
++.amd-event-missed-call-added__is-advertising > * {
++  margin: auto;
++  font-weight: 900;
++  font-style: normal;
++  font-variant: normal;
++  text-rendering: auto;
++  line-height: 1;
++  font-size: 20px;
++}
++.amd-event-missed-call-added__content {
++  flex: 1 0;
++  flex-direction: column;
++  display: flex;
++  padding: 5px;
++}
++.amd-event-missed-call-added__call-top {
++  margin-bottom: 5px;
++  display: flex;
++  column-gap: 0.5rem;
++}
++.amd-event-missed-call-added__call-bottom {
++  color: black;
++  font-size: 1.1em;
++  display: flex;
++  flex-direction: row;
++  align-items: center;
++  column-gap: 10px;
++}
++.amd-event-missed-call-added__counter {
++  padding: 3px 8px;
++  font-size: 0.9rem;
++  font-weight: bold;
++  border-radius: 3px;
++  text-align: center;
++  text-decoration: none;
++  display: inline-block;
++  user-select: none;
++}
++.amd-event-missed-call-added__counter_incoming {
++  color: #5cb85c;
++  background: #FFFFFF;
++  border: 1px solid #5cb85c;
++}
++.amd-event-missed-call-added__counter_outgoing {
++  color: #337ab7;
++  background: #FFFFFF;
++  border: 1px solid #337ab7;
++}
++.amd-event-missed-call-added__toggle-btn {
++  padding: 3px 4px;
++}
++.amd-event-missed-call-added__play-btn {
++  font-family: FontAwesome, serif;
++  font-weight: 900;
++  font-size: 20px;
++  cursor: pointer;
++}
++.amd-event-missed-call-added__play-btn:hover {
++  color: #5cb85c;
++}
++.amd-event-missed-call-added__play-btn::before {
++  content: "\f144";
++}
++.amd-event-missed-call-added__play-btn_disabled {
++  cursor: default;
++  color: rgba(93, 93, 93, 0.85);
++}
++.amd-event-missed-call-added__play-btn_disabled:hover {
++  color: #5D5D5D;
++}
++.amd-event-missed-call-added__accordion-controls {
++  border: 1px solid;
++  border-bottom: 0;
++  width: 100%;
++  padding: 5px;
++  box-sizing: border-box;
++  display: flex;
++  flex-direction: row;
++  column-gap: 5px;
++}
++.amd-event-missed-call-added__rating {
++  background: #df9cff;
++  border-radius: 4px;
++  padding: 4px;
++}
++.amd-event-missed-call-added__tag {
++  display: inline-flex;
++  flex-direction: row;
++  align-items: center;
++  justify-content: center;
++  column-gap: 5px;
++  margin: 2px 5px 2px 0;
++  background-color: #E4E4E4;
++  padding: 4px;
++  white-space: nowrap;
++  color: #000000;
++}
++
+ .amd-event-relation-with-staff-task-created__event {
+   width: 100%;
+   border: 1px solid;
+diff --git a/public/css/scss/app/application/sales-funnel/styles.css b/public/css/scss/app/application/sales-funnel/styles.css
+index da6c7bc80e..01032a7965 100644
+--- a/public/css/scss/app/application/sales-funnel/styles.css
++++ b/public/css/scss/app/application/sales-funnel/styles.css
+@@ -1322,6 +1322,199 @@ lead-search-control.lead-list-search_full-width input {
+   color: #000000;
+ }
+ 
++#j-player-not-found {
++  display: none;
++}
++
++.amd-event-missed-call-added__event {
++  width: 100%;
++  border: 1px solid;
++  border-top-width: 0;
++  border-bottom-width: 0;
++  background-color: white;
++  display: none;
++  box-sizing: border-box;
++}
++.amd-event-missed-call-added__event_visible {
++  display: flex;
++  flex-direction: column;
++}
++.amd-event-missed-call-added__event_first {
++  border-top-width: 1px;
++}
++.amd-event-missed-call-added__event_last {
++  border-bottom-width: 1px;
++}
++.amd-event-missed-call-added__event_searched-for {
++  background-color: wheat;
++  color: black;
++}
++.amd-event-missed-call-added__event-row {
++  display: flex;
++}
++.amd-event-missed-call-added__event-comments {
++  margin-bottom: 5px;
++  margin-left: 9px;
++}
++.amd-event-missed-call-added__accordion {
++  flex-direction: column;
++  display: flex;
++  width: 100%;
++}
++.amd-event-missed-call-added__accordion::before {
++  content: "";
++  margin: 0 10px;
++  height: 2px;
++  border: 1px solid;
++  border-bottom-width: 0;
++  flex-grow: 1;
++}
++.amd-event-missed-call-added__accordion::after {
++  content: "";
++  margin: 0 5px;
++  height: 2px;
++  border: 1px solid;
++  border-bottom-width: 0;
++  flex-grow: 1;
++}
++.amd-event-missed-call-added__icon-wrapper {
++  flex: 0 0 20px;
++  padding: 5px;
++}
++.amd-event-missed-call-added__icon {
++  padding: 5px;
++  border: 2px solid;
++  border-radius: 20px;
++  background-color: white;
++}
++.amd-event-missed-call-added__icon::before {
++  content: "\f095";
++  font-family: "Font Awesome 5 Free", serif;
++  font-weight: 900;
++  font-style: normal;
++  font-variant: normal;
++  text-rendering: auto;
++  line-height: 1;
++  font-size: 20px;
++  border-radius: 4px;
++}
++.amd-event-missed-call-added__icon_incoming {
++  border-color: #d9534f;
++  color: #d9534f;
++}
++.amd-event-missed-call-added__icon_outgoing {
++  border-color: #337ab7;
++  color: #337ab7;
++}
++.amd-event-missed-call-added__is-advertising {
++  color: darkgoldenrod;
++  position: relative;
++  top: -19px;
++  left: 22px;
++  background: white;
++  display: flex;
++  width: 21px;
++  height: 21px;
++  border-radius: 12px;
++}
++.amd-event-missed-call-added__is-advertising > * {
++  margin: auto;
++  font-weight: 900;
++  font-style: normal;
++  font-variant: normal;
++  text-rendering: auto;
++  line-height: 1;
++  font-size: 20px;
++}
++.amd-event-missed-call-added__content {
++  flex: 1 0;
++  flex-direction: column;
++  display: flex;
++  padding: 5px;
++}
++.amd-event-missed-call-added__call-top {
++  margin-bottom: 5px;
++  display: flex;
++  column-gap: 0.5rem;
++}
++.amd-event-missed-call-added__call-bottom {
++  color: black;
++  font-size: 1.1em;
++  display: flex;
++  flex-direction: row;
++  align-items: center;
++  column-gap: 10px;
++}
++.amd-event-missed-call-added__counter {
++  padding: 3px 8px;
++  font-size: 0.9rem;
++  font-weight: bold;
++  border-radius: 3px;
++  text-align: center;
++  text-decoration: none;
++  display: inline-block;
++  user-select: none;
++}
++.amd-event-missed-call-added__counter_incoming {
++  color: #5cb85c;
++  background: #FFFFFF;
++  border: 1px solid #5cb85c;
++}
++.amd-event-missed-call-added__counter_outgoing {
++  color: #337ab7;
++  background: #FFFFFF;
++  border: 1px solid #337ab7;
++}
++.amd-event-missed-call-added__toggle-btn {
++  padding: 3px 4px;
++}
++.amd-event-missed-call-added__play-btn {
++  font-family: FontAwesome, serif;
++  font-weight: 900;
++  font-size: 20px;
++  cursor: pointer;
++}
++.amd-event-missed-call-added__play-btn:hover {
++  color: #5cb85c;
++}
++.amd-event-missed-call-added__play-btn::before {
++  content: "\f144";
++}
++.amd-event-missed-call-added__play-btn_disabled {
++  cursor: default;
++  color: rgba(93, 93, 93, 0.85);
++}
++.amd-event-missed-call-added__play-btn_disabled:hover {
++  color: #5D5D5D;
++}
++.amd-event-missed-call-added__accordion-controls {
++  border: 1px solid;
++  border-bottom: 0;
++  width: 100%;
++  padding: 5px;
++  box-sizing: border-box;
++  display: flex;
++  flex-direction: row;
++  column-gap: 5px;
++}
++.amd-event-missed-call-added__rating {
++  background: #df9cff;
++  border-radius: 4px;
++  padding: 4px;
++}
++.amd-event-missed-call-added__tag {
++  display: inline-flex;
++  flex-direction: row;
++  align-items: center;
++  justify-content: center;
++  column-gap: 5px;
++  margin: 2px 5px 2px 0;
++  background-color: #E4E4E4;
++  padding: 4px;
++  white-space: nowrap;
++  color: #000000;
++}
++
+ .amd-event-relation-with-staff-task-created__event {
+   width: 100%;
+   border: 1px solid;
+diff --git a/public/js/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.js b/public/js/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.js
+index c3580b3671..fd5492f114 100644
+--- a/public/js/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.js
++++ b/public/js/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.js
+@@ -69,6 +69,8 @@ define(["require", "exports", "../../../../angular/decorator/component.decorator
+                 event_types_1.EEventType.RELATION_WITH_RECEIPT_PLAN_ACCESSORIES_CREATED,
+                 event_types_1.EEventType.RELATION_WITH_RECEIPT_PLAN_MANUFACTURES_CREATED,
+                 event_types_1.EEventType.RELATION_WITH_RECEIPT_PLAN_REPAIRWORKS_CREATED,
++                event_types_1.EEventType.MISSED_CALL_CREATED,
++                event_types_1.EEventType.MISSED_CALL_DELETED,
+             ];
+         }
+         getDiscussion() {
+diff --git a/public/js/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.js b/public/js/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.js
+index 5bb6bfcdcf..eb4c0b3038 100644
+--- a/public/js/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.js
++++ b/public/js/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.js
+@@ -136,10 +136,6 @@ define(["require", "exports", "../../../../../angular/decorator/component.decora
+                     ng-href="{{'/call/call-analysis/?leadId=' + event.data.leadId + '&callId=' + event.data.callRegistryId}}"
+                 >Анализ звонков</a>
+ 
+-                <amd-button
+-                    ng-if="!$ctrl.readonly && $ctrl.haveRelationWithCall(event)" 
+-                    ng-click="$ctrl.createLead(event)"
+-                >выделить в отдельный лид</amd-button>
+             </div>
+             
+             <div ng-if="
+@@ -198,6 +194,8 @@ define(["require", "exports", "../../../../../angular/decorator/component.decora
+                 }
+                 this.visibleComments[item.id] = true;
+             });
++            console.log('this.events call');
++            console.log(this.events);
+         }
+         $postLink() {
+             if (this.observer) {
+diff --git a/public/js/app/application/sales-funnel/lead-log/component/lead-logger.component.js b/public/js/app/application/sales-funnel/lead-log/component/lead-logger.component.js
+index 750f693185..dbe5b2b8df 100644
+--- a/public/js/app/application/sales-funnel/lead-log/component/lead-logger.component.js
++++ b/public/js/app/application/sales-funnel/lead-log/component/lead-logger.component.js
+@@ -13,6 +13,7 @@ define(["require", "exports", "../event.types", "../../../../angular/decorator/c
+     exports.LeadLoggerComponent = void 0;
+     const GROUP_EVENTS = [
+         event_types_1.EEventType.RELATION_WITH_CALL_CREATED,
++        event_types_1.EEventType.MISSED_CALL_CREATED,
+         event_types_1.EEventType.RELATION_WITH_MAIL_SERVER_MESSAGE_CREATED,
+         event_types_1.EEventType.RELATION_WITH_AVITO_CHAT_MESSAGE_CREATED,
+         event_types_1.EEventType.RELATION_WITH_EDNA_MESSAGE_CREATED,
+@@ -567,6 +568,24 @@ define(["require", "exports", "../event.types", "../../../../angular/decorator/c
+                 data-show-error="$ctrl.useDetailedLogMode"
+                 readonly="$ctrl.readonly"
+             ></event-child-lead-removed>
++            
++            <event-missed-call-created
++                class="amd-lead-log__event"
++                ng-switch-when="${event_types_1.EEventType.MISSED_CALL_CREATED}"
++                data-lead="$ctrl.lead"
++                data-events="event.event"
++                data-group="event.group"
++                readonly="$ctrl.readonly"
++            ></event-missed-call-created>
++            
++            <event-missed-call-deleted
++                class="amd-lead-log__event"
++                ng-switch-when="${event_types_1.EEventType.MISSED_CALL_DELETED}"
++                data-events="event.event"
++                data-group="event.group"
++                data-show-error="$ctrl.useDetailedLogMode"
++                readonly="$ctrl.readonly"
++            ></event-missed-call-deleted>
+         </div>
+     </div>
+ </div>
+@@ -670,6 +689,7 @@ define(["require", "exports", "../event.types", "../../../../angular/decorator/c
+             if (this.lead) {
+                 this.reverseLeadLogEvents = +this.lead.reverseLeadLogEvents != 0;
+             }
++            console.log(this.lead.log);
+             if (this.lead.id) {
+                 let wampTimer;
+                 this.wampClient = new wamp_client_1.WampClient();
+@@ -731,6 +751,7 @@ define(["require", "exports", "../event.types", "../../../../angular/decorator/c
+                         (!event.data.relationTypeId ||
+                             this.lead.relations[event.data.relationTypeId] &&
+                                 this.lead.relations[event.data.relationTypeId].includes(event.data.relatedObjectId))))));
++            console.log(cleanList);
+             let prevEventType = null;
+             let leadPeriods = {};
+             let prevParticipantsIdentifier = null;
+diff --git a/public/js/app/application/sales-funnel/lead-log/event.types.js b/public/js/app/application/sales-funnel/lead-log/event.types.js
+index a5138651e0..08da96abf6 100644
+--- a/public/js/app/application/sales-funnel/lead-log/event.types.js
++++ b/public/js/app/application/sales-funnel/lead-log/event.types.js
+@@ -59,6 +59,8 @@ define(["require", "exports"], function (require, exports) {
+         EEventType["LEAD_MESSAGE_SENDED_FAIL"] = "App\\Event\\SalesFunnel\\Type\\Channel\\FailedChannelMessageEvent";
+         EEventType["LEAD_FIELD_CHANGED"] = "App\\Event\\SalesFunnel\\Type\\LeadFieldChanged";
+         EEventType["CHILD_LEAD_REMOVED"] = "App\\Event\\SalesFunnel\\Type\\ChildLeadRemoved";
++        EEventType["MISSED_CALL_CREATED"] = "App\\Event\\SalesFunnel\\Type\\Relation\\MissedCallCreated";
++        EEventType["MISSED_CALL_DELETED"] = "App\\Event\\SalesFunnel\\Type\\Relation\\MissedCallDeleted";
+     })(EEventType || (exports.EEventType = EEventType = {}));
+     exports.DETAILED_TYPES = {
+         [EEventType.LEAD_MERGE_START]: EEventType.LEAD_MERGE_START,
+diff --git a/public/js/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.js b/public/js/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.js
+index 7a4f3c2c26..ca83d414be 100644
+--- a/public/js/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.js
++++ b/public/js/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.js
+@@ -4,7 +4,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
+     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+     return c > 3 && r && Object.defineProperty(target, key, r), r;
+ };
+-define(["require", "exports", "../../../angular/decorator/module.decorator", "../../../angular/directive/amd-button/amd-button.module", "../../../angular/component/amd-dialog/amd-dialog.module", "../../../angular/directive/amd-readable-color/amd-readable-color.module", "../../../angular/generated/constant/table/sales-funnel-lead-relation-type.module", "../../cash/common/constants", "../../../angular/component/amd-switch/module", "../../../angular/component/amd-expandable-text/amd-expandable-text.module", "./component/lead-logger.component", "./component/event/lead-creation.component", "./component/event/lead-stage-changed.component", "./component/event/lead-phone-added.component", "./component/event/relation-with-call-created.component", "./component/event/relation-with-call-removed.component", "./component/event/relation-with-mail-server-message-created.component", "./component/event/relation-with-mail-server-message-removed.component", "./component/event/lead-client-changed.component", "./component/event/lead-owner-changed.component", "./component/event/lead-merge.component", "./component/common/lead-event-reason.component", "./component/event/relation-created.component", "./component/event/relation-removed.component", "./component/create-lead-from-call-form.component", "./service/lead-events-backend.service", "./service/lead-log-data.service", "./component/quality-control/closed-without-deal-confirmed.component", "./component/event/relation-with-cash-created.component", "./component/event/child-lead-created.component", "../common/angular-filter/sales-funnel.angular-filter.module", "./component/event/lead-comment-added.component", "./component/event-discussion-controls.component", "./service/discussion-message-form.service", "./service/discussion-message-save.service", "./component/event-discussion.component", "./component/discussion-message.component", "./component/discussion-message-form.component", "./component/watch-form.component", "./service/watch-form.service", "./component/extended-event/events-group.component", "./component/extended-event/events-group-counter.component", "./component/extended-event/events-group-counters.component", "./component/extended-event/extended-event-container.component", "./component/extended-event/mail-server-message/create-lead-from-mail-server-message-form.component", "./component/extended-event/mail-server-message/mail-server-message.component", "./component/event/relation-with-calendar-notification-created.component", "./component/event/relation-with-staff-task-created.component", "./service/lead-logger-api.service", "../../../angular/filter/trust-as-html.filter", "../../mail-client/modules/message-form/message-form.module", "../../../angular/component/amd-fileuploaders/amd-fileuploader/amd-file-uploader.module", "../../tasks/staff-tasks/component/task-actions/task-action.module", "./component/event/lead-email-added.component", "./component/common/lead-event-author.component", "./component/lead-removed.component", "../lead-list/module/advertising-platform-icon/advertising-platform-icon.module", "../../../angular/generated/constant/table/sales-funnel-stage-trigger-event.module", "../../../angular/component/amd-icon/amd-icon.module", "./component/event/ownership-transfer-created.component", "../../../angular/generated/constant/table/tasks-staff-task-states.module", "./component/event/relation-with-avito-chat-message-created.component", "./component/extended-event/avito-chat-message/lead-log-avito-chat.component", "./component/extended-event/avito-chat-message/lead-log-avito-chat-message.component", "./service/avito-chat-message.service", "./component/event/survey-answer-added.component", "./component/extended-event/call-transcription/lead-log-call-transcription.component", "../../../angular/component/amd-audio-player/amd-audio-player.module", "./component/event/lead-prop-value-changed.component", "./component/event/channel-message-send-success.component", "./component/event/channel-message-sent-fail.component", "./component/event/lead-field-changed.component", "./component/event/child-lead-removed.component", "../../access/access-link/access-link.module", "./component/event/lead-phone-removed.component", "./component/event/lead-email-removed.component", "../../calendar/notification/calendar.notification.module", "../../edna/edna-chat/edna-chat.module", "./component/edna-message-form", "./component/event/relation-with-edna-message-created.component", "./component/event/lead-confirmed", "ngLocaleRu"], function (require, exports, module_decorator_1, amd_button_module_1, amd_dialog_module_1, amd_readable_color_module_1, sales_funnel_lead_relation_type_module_1, constants_1, module_1, amd_expandable_text_module_1, lead_logger_component_1, lead_creation_component_1, lead_stage_changed_component_1, lead_phone_added_component_1, relation_with_call_created_component_1, relation_with_call_removed_component_1, relation_with_mail_server_message_created_component_1, relation_with_mail_server_message_removed_component_1, lead_client_changed_component_1, lead_owner_changed_component_1, lead_merge_component_1, lead_event_reason_component_1, relation_created_component_1, relation_removed_component_1, create_lead_from_call_form_component_1, lead_events_backend_service_1, lead_log_data_service_1, closed_without_deal_confirmed_component_1, relation_with_cash_created_component_1, child_lead_created_component_1, sales_funnel_angular_filter_module_1, lead_comment_added_component_1, event_discussion_controls_component_1, discussion_message_form_service_1, discussion_message_save_service_1, event_discussion_component_1, discussion_message_component_1, discussion_message_form_component_1, watch_form_component_1, watch_form_service_1, events_group_component_1, events_group_counter_component_1, events_group_counters_component_1, extended_event_container_component_1, create_lead_from_mail_server_message_form_component_1, mail_server_message_component_1, relation_with_calendar_notification_created_component_1, relation_with_staff_task_created_component_1, lead_logger_api_service_1, trust_as_html_filter_1, message_form_module_1, amd_file_uploader_module_1, task_action_module_1, lead_email_added_component_1, lead_event_author_component_1, lead_removed_component_1, advertising_platform_icon_module_1, sales_funnel_stage_trigger_event_module_1, amd_icon_module_1, ownership_transfer_created_component_1, tasks_staff_task_states_module_1, relation_with_avito_chat_message_created_component_1, lead_log_avito_chat_component_1, lead_log_avito_chat_message_component_1, avito_chat_message_service_1, survey_answer_added_component_1, lead_log_call_transcription_component_1, amd_audio_player_module_1, lead_prop_value_changed_component_1, channel_message_send_success_component_1, channel_message_sent_fail_component_1, lead_field_changed_component_1, child_lead_removed_component_1, access_link_module_1, lead_phone_removed_component_1, lead_email_removed_component_1, calendar_notification_module_1, edna_chat_module_1, edna_message_form_1, relation_with_edna_message_created_component_1, lead_confirmed_1) {
++define(["require", "exports", "../../../angular/decorator/module.decorator", "../../../angular/directive/amd-button/amd-button.module", "../../../angular/component/amd-dialog/amd-dialog.module", "../../../angular/directive/amd-readable-color/amd-readable-color.module", "../../../angular/generated/constant/table/sales-funnel-lead-relation-type.module", "../../cash/common/constants", "../../../angular/component/amd-switch/module", "../../../angular/component/amd-expandable-text/amd-expandable-text.module", "./component/lead-logger.component", "./component/event/lead-creation.component", "./component/event/lead-stage-changed.component", "./component/event/lead-phone-added.component", "./component/event/relation-with-call-created.component", "./component/event/missed-call-created.component", "./component/event/missed-call-deleted.component", "./component/event/relation-with-call-removed.component", "./component/event/relation-with-mail-server-message-created.component", "./component/event/relation-with-mail-server-message-removed.component", "./component/event/lead-client-changed.component", "./component/event/lead-owner-changed.component", "./component/event/lead-merge.component", "./component/common/lead-event-reason.component", "./component/event/relation-created.component", "./component/event/relation-removed.component", "./component/create-lead-from-call-form.component", "./service/lead-events-backend.service", "./service/lead-log-data.service", "./component/quality-control/closed-without-deal-confirmed.component", "./component/event/relation-with-cash-created.component", "./component/event/child-lead-created.component", "../common/angular-filter/sales-funnel.angular-filter.module", "./component/event/lead-comment-added.component", "./component/event-discussion-controls.component", "./service/discussion-message-form.service", "./service/discussion-message-save.service", "./component/event-discussion.component", "./component/discussion-message.component", "./component/discussion-message-form.component", "./component/watch-form.component", "./service/watch-form.service", "./component/extended-event/events-group.component", "./component/extended-event/events-group-counter.component", "./component/extended-event/events-group-counters.component", "./component/extended-event/extended-event-container.component", "./component/extended-event/mail-server-message/create-lead-from-mail-server-message-form.component", "./component/extended-event/mail-server-message/mail-server-message.component", "./component/event/relation-with-calendar-notification-created.component", "./component/event/relation-with-staff-task-created.component", "./service/lead-logger-api.service", "../../../angular/filter/trust-as-html.filter", "../../mail-client/modules/message-form/message-form.module", "../../../angular/component/amd-fileuploaders/amd-fileuploader/amd-file-uploader.module", "../../tasks/staff-tasks/component/task-actions/task-action.module", "./component/event/lead-email-added.component", "./component/common/lead-event-author.component", "./component/lead-removed.component", "../lead-list/module/advertising-platform-icon/advertising-platform-icon.module", "../../../angular/generated/constant/table/sales-funnel-stage-trigger-event.module", "../../../angular/component/amd-icon/amd-icon.module", "./component/event/ownership-transfer-created.component", "../../../angular/generated/constant/table/tasks-staff-task-states.module", "./component/event/relation-with-avito-chat-message-created.component", "./component/extended-event/avito-chat-message/lead-log-avito-chat.component", "./component/extended-event/avito-chat-message/lead-log-avito-chat-message.component", "./service/avito-chat-message.service", "./component/event/survey-answer-added.component", "./component/extended-event/call-transcription/lead-log-call-transcription.component", "../../../angular/component/amd-audio-player/amd-audio-player.module", "./component/event/lead-prop-value-changed.component", "./component/event/channel-message-send-success.component", "./component/event/channel-message-sent-fail.component", "./component/event/lead-field-changed.component", "./component/event/child-lead-removed.component", "../../access/access-link/access-link.module", "./component/event/lead-phone-removed.component", "./component/event/lead-email-removed.component", "../../calendar/notification/calendar.notification.module", "../../edna/edna-chat/edna-chat.module", "./component/edna-message-form", "./component/event/relation-with-edna-message-created.component", "./component/event/lead-confirmed", "ngLocaleRu"], function (require, exports, module_decorator_1, amd_button_module_1, amd_dialog_module_1, amd_readable_color_module_1, sales_funnel_lead_relation_type_module_1, constants_1, module_1, amd_expandable_text_module_1, lead_logger_component_1, lead_creation_component_1, lead_stage_changed_component_1, lead_phone_added_component_1, relation_with_call_created_component_1, missed_call_created_component_1, missed_call_deleted_component_1, relation_with_call_removed_component_1, relation_with_mail_server_message_created_component_1, relation_with_mail_server_message_removed_component_1, lead_client_changed_component_1, lead_owner_changed_component_1, lead_merge_component_1, lead_event_reason_component_1, relation_created_component_1, relation_removed_component_1, create_lead_from_call_form_component_1, lead_events_backend_service_1, lead_log_data_service_1, closed_without_deal_confirmed_component_1, relation_with_cash_created_component_1, child_lead_created_component_1, sales_funnel_angular_filter_module_1, lead_comment_added_component_1, event_discussion_controls_component_1, discussion_message_form_service_1, discussion_message_save_service_1, event_discussion_component_1, discussion_message_component_1, discussion_message_form_component_1, watch_form_component_1, watch_form_service_1, events_group_component_1, events_group_counter_component_1, events_group_counters_component_1, extended_event_container_component_1, create_lead_from_mail_server_message_form_component_1, mail_server_message_component_1, relation_with_calendar_notification_created_component_1, relation_with_staff_task_created_component_1, lead_logger_api_service_1, trust_as_html_filter_1, message_form_module_1, amd_file_uploader_module_1, task_action_module_1, lead_email_added_component_1, lead_event_author_component_1, lead_removed_component_1, advertising_platform_icon_module_1, sales_funnel_stage_trigger_event_module_1, amd_icon_module_1, ownership_transfer_created_component_1, tasks_staff_task_states_module_1, relation_with_avito_chat_message_created_component_1, lead_log_avito_chat_component_1, lead_log_avito_chat_message_component_1, avito_chat_message_service_1, survey_answer_added_component_1, lead_log_call_transcription_component_1, amd_audio_player_module_1, lead_prop_value_changed_component_1, channel_message_send_success_component_1, channel_message_sent_fail_component_1, lead_field_changed_component_1, child_lead_removed_component_1, access_link_module_1, lead_phone_removed_component_1, lead_email_removed_component_1, calendar_notification_module_1, edna_chat_module_1, edna_message_form_1, relation_with_edna_message_created_component_1, lead_confirmed_1) {
+     "use strict";
+     Object.defineProperty(exports, "__esModule", { value: true });
+     exports.SalesFunnelLeadLogModule = void 0;
+@@ -86,7 +86,9 @@ define(["require", "exports", "../../../angular/decorator/module.decorator", "..
+                 lead_field_changed_component_1.LeadFieldChangedComponent,
+                 child_lead_removed_component_1.ChildLeadRemovedComponent,
+                 lead_phone_removed_component_1.LeadPhoneRemovedComponent,
+-                lead_email_removed_component_1.LeadEmailRemovedComponent
++                lead_email_removed_component_1.LeadEmailRemovedComponent,
++                missed_call_created_component_1.MissedCallCreatedComponent,
++                missed_call_deleted_component_1.MissedCallDeletedComponent
+             ],
+             providers: [
+                 lead_events_backend_service_1.LeadEventsBackendService,
+diff --git a/scss/app/application/client/client-timeline.scss b/scss/app/application/client/client-timeline.scss
+index 59f42e49ff..19dab68b3d 100644
+--- a/scss/app/application/client/client-timeline.scss
++++ b/scss/app/application/client/client-timeline.scss
+@@ -1,5 +1,6 @@
+ @import "../../variables";
+ @import "../sales-funnel/lead-log/component/event/relation-with-call-added";
++@import "../sales-funnel/lead-log/component/event/missed-call-added";
+ @import "../sales-funnel/lead-log/component/extended-event/_styles.scss";
+ @import "../mail-client/modules/message-form/message-form";
+ @import "../sales-funnel/lead-log/component/event/relation-with-chat-message-created";
+diff --git a/scss/app/application/sales-funnel/lead-log/component/event/_missed-call-added.scss b/scss/app/application/sales-funnel/lead-log/component/event/_missed-call-added.scss
+index f4548552d8..534b58b925 100644
+--- a/scss/app/application/sales-funnel/lead-log/component/event/_missed-call-added.scss
++++ b/scss/app/application/sales-funnel/lead-log/component/event/_missed-call-added.scss
+@@ -4,7 +4,7 @@
+     display: none;
+ }
+ 
+-.amd-event-relation-with-call-added {
++.amd-event-missed-call-added {
+     &__event {
+         width: 100%;
+         border: 1px solid;
+@@ -90,8 +90,8 @@
+         }
+ 
+         &_incoming {
+-            border-color: $color-success;
+-            color: $color-success;
++            border-color: $color-danger;
++            color: $color-danger;
+         }
+ 
+         &_outgoing {
+diff --git a/scss/app/application/sales-funnel/lead-log/component/event/_styles.scss b/scss/app/application/sales-funnel/lead-log/component/event/_styles.scss
+index 097009eb03..195f6ffa2f 100644
+--- a/scss/app/application/sales-funnel/lead-log/component/event/_styles.scss
++++ b/scss/app/application/sales-funnel/lead-log/component/event/_styles.scss
+@@ -1,5 +1,6 @@
+ @import "relation-with-calendar-notification-created";
+ @import "relation-with-call-added";
++@import "missed-call-added";
+ @import "relation-with-staff-task-created";
+ @import "relation-with-chat-message-created";
+ @import "survey-answer-added";
+diff --git a/typescript/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.ts b/typescript/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.ts
+index c67376f78a..efb71942ca 100644
+--- a/typescript/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.ts
++++ b/typescript/app/application/sales-funnel/lead-log/component/event-discussion-controls.component.ts
+@@ -75,6 +75,9 @@ export class EventDiscussionControlsComponent implements IComponentController
+         EEventType.RELATION_WITH_RECEIPT_PLAN_ACCESSORIES_CREATED,
+         EEventType.RELATION_WITH_RECEIPT_PLAN_MANUFACTURES_CREATED,
+         EEventType.RELATION_WITH_RECEIPT_PLAN_REPAIRWORKS_CREATED,
++
++        EEventType.MISSED_CALL_CREATED,
++        EEventType.MISSED_CALL_DELETED,
+     ];
+ 
+     public constructor(
+diff --git a/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-created.component.ts b/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-created.component.ts
+index 1d72dce11e..283ff7b20d 100644
+--- a/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-created.component.ts
++++ b/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-created.component.ts
+@@ -1,74 +1,65 @@
+ import {IComponentController, IRootElementService, IRootScopeService} from "angular";
+ import 'jplayer';
+-import {TParams, TResult} from "../create-lead-from-call-form.component";
+ import {Component, Inject, Input} from "../../../../../angular/decorator/component.decorator";
+ import {SalesFunnel_LeadLog} from "../../types";
+ import {SalesFunnel_LeadDetail} from "../../../lead-detail/types";
+ import {AmdWindowService} from "../../../../../angular/component/amd-dialog/service/amd-window.service";
+-import {
+-    EConstantTableSalesFunnelLeadRelationType
+-} from "../../../../../angular/generated/constant/table/sales-funnel-lead-relation-type.module";
+ import {LeadLogDataService} from "../../service/lead-log-data.service";
+-import {
+-    AmdAudioPlayerDialogService
+-} from "../../../../../angular/component/amd-audio-player/service/amd-audio-player-dialog.service";
+-import TEventRelationWithCall = SalesFunnel_LeadLog.TEventRelationWithCall;
+ import TFullLead = SalesFunnel_LeadDetail.TFullLead;
+-import TEvent = SalesFunnel_LeadLog.TEvent;
++import TEventMissedCall = SalesFunnel_LeadLog.TEventMissedCall;
+ 
+-export const EVENT_RELATION_WITH_CALL_SEARCHED_FOR_RENDERED = 'sales-funnel.lead-log.relation-with-call-created.searched-for-rendered';
++export const EVENT_MISSED_CALL_SEARCHED_FOR_RENDERED = 'sales-funnel.lead-log.missed-call-created.searched-for-rendered';
+ 
+ const TRANSCRIPTION_CLASS = 'js-transcription-call';
+ 
+ const TEMPLATE = `
+-<div class="amd-event-relation-with-call-added__accordion"
++<div class="amd-event-missed-call-added__accordion"
+     ng-if="$ctrl.events.length > 1"
+     ng-class="{'visibility_hidden': $ctrl.showAll}"
+ ></div>
+-<div class="amd-event-relation-with-call-added__accordion-controls"
++<div class="amd-event-missed-call-added__accordion-controls"
+     ng-if="$ctrl.events.length > 1"
+     style="justify-content: space-between;"
+ >
+-    <amd-button ng-click="$ctrl.toggleVisibility()" class="amd-event-relation-with-call-added__toggle-btn">
++    <amd-button ng-click="$ctrl.toggleVisibility()" class="amd-event-missed-call-added__toggle-btn">
+         <amd-icon ng-if="!$ctrl.showAll" title="развернуть">caretRight</amd-icon>
+         <amd-icon ng-if="$ctrl.showAll" title="свернуть">caretDown</amd-icon>
+     </amd-button>
+     <div>
+-        <span class="amd-event-relation-with-call-added__counter amd-event-relation-with-call-added__counter_incoming">
++        <span class="amd-event-missed-call-added__counter amd-event-missed-call-added__counter_incoming">
+             <i class="fas fa-phone"></i>
+             {{$ctrl.incomingNumber}}
+         </span>
+-        <span class="amd-event-relation-with-call-added__counter amd-event-relation-with-call-added__counter_outgoing">
++        <span class="amd-event-missed-call-added__counter amd-event-missed-call-added__counter_outgoing">
+             <i class="fas fa-phone"></i>
+             {{$ctrl.outgoingNumber}}
+         </span>
+     </div>
+ </div>
+-<div class="amd-event-relation-with-call-added__event"
++<div class="amd-event-missed-call-added__event"
+     ng-repeat="event in $ctrl.events"    
+     ng-class="{
+-        'amd-event-relation-with-call-added__event_first': $index === 0 || !$ctrl.showAll,
+-        'amd-event-relation-with-call-added__event_last': $index === ($ctrl.events.length - 1),
+-        'amd-event-relation-with-call-added__event_visible': $index === ($ctrl.events.length - 1) || $ctrl.showAll,
+-        'amd-event-relation-with-call-added__event_searched-for ${TRANSCRIPTION_CLASS}': $ctrl.isFoundByTranscription(event),        
+-    }"   
++        'amd-event-missed-call-added__event_first': $index === 0 || !$ctrl.showAll,
++        'amd-event-missed-call-added__event_last': $index === ($ctrl.events.length - 1),
++        'amd-event-missed-call-added__event_visible': $index === ($ctrl.events.length - 1) || $ctrl.showAll,
++    }"
+ >
+-    <div class="amd-event-relation-with-call-added__event-row">
+-        <div class="amd-event-relation-with-call-added__icon-wrapper">
+-            <div class="amd-event-relation-with-call-added__icon"
++    <div class="amd-event-missed-call-added__event-row">
++        <div class="amd-event-missed-call-added__icon-wrapper">
++            <div class="amd-event-missed-call-added__icon"
+                 ng-class="{
+-                    'amd-event-relation-with-call-added__icon_incoming': event.data.incoming,
+-                    'amd-event-relation-with-call-added__icon_outgoing': event.data.outgoing,
++                    'amd-event-missed-call-added__icon_incoming': event.data.incoming,
++                    'amd-event-missed-call-added__icon_outgoing': event.data.outgoing,
+                 }"
+             ></div>
+             <lead-advertising-platform-icon 
+                 ng-if="event.data.isAdvertising"
+-                class="amd-event-relation-with-call-added__is-advertising"
++                class="amd-event-missed-call-added__is-advertising"
+                 data-model="event.data"
+             ></lead-advertising-platform-icon>
+         </div>
+-        <div class="amd-event-relation-with-call-added__content">
+-            <div class="amd-event-relation-with-call-added__call-top">
++        <div class="amd-event-missed-call-added__content">
++            <div class="amd-event-missed-call-added__call-top">
+                 <span ng-hide="$ctrl.readonly">
+                     <event-discussion-controls-component
+                         data-lead="$ctrl.lead"
+@@ -90,7 +81,7 @@ const TEMPLATE = `
+                 </span>
+             </div>
+ 
+-            <div class="amd-event-relation-with-call-added__call-bottom">
++            <div class="amd-event-missed-call-added__call-bottom">
+                 <a target="_blank" title="перейти к звонку"
+                     ng-href="{{event.data.callUrl}}"
+                 >
+@@ -102,51 +93,12 @@ const TEMPLATE = `
+                 <span>
+                     {{event.data.duration}}
+                 </span>
+-
+-                <span class="amd-event-relation-with-call-added__play-btn" 
+-                    title="{{event.data.atsRecordAllowed ? 'прослушать' : 'прослушка недоступна из-за прав доступа'}}"
+-                    ng-class="{'amd-event-relation-with-call-added__play-btn_disabled': !event.data.atsRecordAllowed}"
+-                    ng-click="$ctrl.listen(event)"
+-                ></span>
+-                
+-                <div class="amd-event-relation-with-call-added__rating"
+-                    title="оценка звонка клиентом"
+-                    ng-if="event.data.atsRating > 0"
+-                >
+-                    <amd-icon>star</amd-icon> оценка: {{event.data.atsRating}} / 5
+-                </div>
+-                
+-                <div class="fa-solid fa-comments"
+-                    ng-if="event.data.atsRecordAllowed && event.data.transcription.isReady != null"
+-                    ng-class="{
+-                        'cursor_pointer color_success':  event.data.transcription.isReady,                        
+-                        'color_warning':  !event.data.transcription.isReady,
+-                    }"
+-                    ng-click="$ctrl.showTranscription(event)"
+-                    title="{{::event.data.transcription.isReady ? 'просмотреть расшифровку' : 'отправлено на расшифровку'}}"
+-                ></div>
+-                
+-                <div class="cursor_pointer fa-solid fa-robot"
+-                    ng-if="
+-                        event.data.atsRecordAllowed && 
+-                        event.data.transcription.comments
+-                    "
+-                    ng-class="{
+-                        'color_success': $ctrl.visibleComments[event.id] && event.data.transcription.comments,
+-                    }"
+-                    ng-click="$ctrl.toggleGPTComments(event)"
+-                    title="резюме GPT"
+-                ></div>
+                 
+                 <a class="amd-btn amd-btn_primary" target="_blank"
+                     ng-if="event.data.rechkaTaskExists"                    
+                     ng-href="{{'/call/call-analysis/?leadId=' + event.data.leadId + '&callId=' + event.data.callRegistryId}}"
+                 >Анализ звонков</a>
+ 
+-                <amd-button
+-                    ng-if="!$ctrl.readonly && $ctrl.haveRelationWithCall(event)" 
+-                    ng-click="$ctrl.createLead(event)"
+-                >выделить в отдельный лид</amd-button>
+             </div>
+             
+             <div ng-if="
+@@ -164,7 +116,7 @@ const TEMPLATE = `
+             
+             <div ng-if="event.data.transcription.tags">
+                 Теги: 
+-                <span class="amd-event-relation-with-call-added__tag" 
++                <span class="amd-event-missed-call-added__tag" 
+                     ng-repeat="(tag, tagData) in ::event.data.transcription.tags track by tag"
+                 >{{::tag}}
+                     <span ng-if="tagData.val">({{::tagData.val}})</span>
+@@ -176,19 +128,19 @@ const TEMPLATE = `
+     <event-discussion-component
+         data-lead="$ctrl.lead"
+         data-event="event"
+-        class="amd-event-relation-with-call-added__event-comments">
++        class="amd-event-missed-call-added__event-comments">
+     </event-discussion-component>
+ </div>
+ `;
+ 
+ @Component({
+-    selector: "event-relation-with-call-created",
++    selector: "event-missed-call-created",
+     template: TEMPLATE,
+ })
+-export class RelationWithCallCreatedComponent implements IComponentController
++export class MissedCallCreatedComponent implements IComponentController
+ {
+     @Input()
+-    private events: TEventRelationWithCall[];
++    private events: TEventMissedCall[];
+ 
+     @Input()
+     private lead: TFullLead;
+@@ -211,8 +163,6 @@ export class RelationWithCallCreatedComponent implements IComponentController
+     private visibleComments: Record<string, boolean> = {};
+ 
+     constructor(
+-        @Inject(AmdAudioPlayerDialogService) private playerDialog: AmdAudioPlayerDialogService,
+-        @Inject(AmdWindowService) private amdWindowService: AmdWindowService,
+         @Inject(LeadLogDataService) private leadLogDataService: LeadLogDataService,
+         @Inject("$rootScope") private $rootScope: IRootScopeService,
+         @Inject("$element") private $element: IRootElementService,
+@@ -255,94 +205,18 @@ export class RelationWithCallCreatedComponent implements IComponentController
+ 
+             let transcriptionCall = this.$element.find(`.${TRANSCRIPTION_CLASS}:first`)
+             if (transcriptionCall.length) {
+-                this.$rootScope.$emit(EVENT_RELATION_WITH_CALL_SEARCHED_FOR_RENDERED, {transcriptionCall: transcriptionCall});
++                this.$rootScope.$emit(EVENT_MISSED_CALL_SEARCHED_FOR_RENDERED, {transcriptionCall: transcriptionCall});
+             }
+         });
+     }
+ 
+ 
+-
+-    /**
+-     * выделение звонка в новый лид
+-     */
+-    private createLead(event: TEvent)
+-    {
+-        this.amdWindowService
+-            .get<TParams, TResult>({
+-                destroyOnHide: true,
+-                template: '<create-lead-from-call-form></create-lead-from-call-form>'
+-            })
+-            .show({
+-                currentLeadId: this.lead.id,
+-                callRegistryId: event.data.callRegistryId
+-            })
+-            .then(
+-                (result) => {
+-                    if (result && result.success) {
+-                        const index = this.lead.relations[EConstantTableSalesFunnelLeadRelationType.TYPE_CALL].indexOf(event.data.callRegistryId);
+-                        if (index > -1) {
+-                            this.lead.relations[EConstantTableSalesFunnelLeadRelationType.TYPE_CALL].splice(index, 1);
+-                        }
+-                    }
+-                },
+-                () => {}
+-            )
+-    }
+-
+-    /**
+-     * проверка наличия связи между лидом и звонком
+-     */
+-    private haveRelationWithCall(event: TEvent)
+-    {
+-        return this.lead.relations[EConstantTableSalesFunnelLeadRelationType.TYPE_CALL] &&
+-            this.lead.relations[EConstantTableSalesFunnelLeadRelationType.TYPE_CALL].indexOf(event.data.callRegistryId) > -1;
+-    }
+-
+     /**
+      * Открывает форму звонка
+      */
+-    private listen(event: TEvent)
+-    {
+-        if (!event.data.atsRecordAllowed) {
+-            return;
+-        }
+-
+-        this.playerDialog.show({
+-            recordId: event.data.callRegistryId,
+-            callDate: event.data.callDate,
+-            mediaUrl: event.data.atsRecordUrl,
+-            autoplay: true,
+-            title: `${event.data.callDate} | ${event.data.callRegistryId}`,
+-            transcription: event.data.transcription?.transcription || null,
+-            tags: event.data.transcription?.fragmentTags || null,
+-            playbackRate: 1.5,
+-        });
+-    }
+-
+     private toggleVisibility()
+     {
+         this.showAll = !this.showAll;
+     }
+ 
+-    private showTranscription(event: TEvent)
+-    {
+-        if (event.data.transcription && event.data.transcription.isReady) {
+-            this.amdWindowService.get({
+-                destroyOnHide: true,
+-                template: `<lead-log-call-transcription></lead-log-call-transcription>`,
+-            }).show({
+-                transcription: event.data.transcription.transcription,
+-            })
+-        }
+-    }
+-
+-    private isFoundByTranscription(event: TEventRelationWithCall): boolean
+-    {
+-        return event.data.callRegistryId in this.leadLogDataService.transcriptionCalls;
+-    }
+-
+-    private toggleGPTComments(event: TEventRelationWithCall)
+-    {
+-        this.visibleComments[event.id] = !this.visibleComments[event.id];
+-    }
+ }
+diff --git a/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-deleted.component.ts b/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-deleted.component.ts
+index 83776e4d7b..64accff470 100644
+--- a/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-deleted.component.ts
++++ b/typescript/app/application/sales-funnel/lead-log/component/event/missed-call-deleted.component.ts
+@@ -2,11 +2,11 @@ import {createTemplate, GenericEventComponent} from "../common/generic-event.com
+ import {Component} from "../../../../../angular/decorator/component.decorator";
+ 
+ @Component({
+-    selector: "event-missed-call-removed",
++    selector: "event-missed-call-deleted",
+     template: createTemplate(`
+-        Связь со звонком <a ng-href="{{$ctrl.event.data.callUrl}}" target="_blank">{{$ctrl.event.data.relatedObjectId}}</a> удалена
++        Связь с пропущенным звонком <a ng-href="{{$ctrl.event.data.callUrl}}" target="_blank">{{$ctrl.event.data.relatedObjectId}}</a> удалена
+     `)
+ })
+-export class MissedCallRemovedComponent extends GenericEventComponent
++export class MissedCallDeletedComponent extends GenericEventComponent
+ {
+ }
+diff --git a/typescript/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.ts b/typescript/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.ts
+index 1d72dce11e..3dabf8ca97 100644
+--- a/typescript/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.ts
++++ b/typescript/app/application/sales-funnel/lead-log/component/event/relation-with-call-created.component.ts
+@@ -143,10 +143,6 @@ const TEMPLATE = `
+                     ng-href="{{'/call/call-analysis/?leadId=' + event.data.leadId + '&callId=' + event.data.callRegistryId}}"
+                 >Анализ звонков</a>
+ 
+-                <amd-button
+-                    ng-if="!$ctrl.readonly && $ctrl.haveRelationWithCall(event)" 
+-                    ng-click="$ctrl.createLead(event)"
+-                >выделить в отдельный лид</amd-button>
+             </div>
+             
+             <div ng-if="
+@@ -235,6 +231,9 @@ export class RelationWithCallCreatedComponent implements IComponentController
+ 
+             this.visibleComments[item.id] = true;
+         });
++
++        console.log('this.events call') // frolov debug
++        console.log(this.events) // frolov debug
+     }
+ 
+     $postLink(): void
+diff --git a/typescript/app/application/sales-funnel/lead-log/component/lead-logger.component.ts b/typescript/app/application/sales-funnel/lead-log/component/lead-logger.component.ts
+index 26e58be9b1..f3229c5c19 100644
+--- a/typescript/app/application/sales-funnel/lead-log/component/lead-logger.component.ts
++++ b/typescript/app/application/sales-funnel/lead-log/component/lead-logger.component.ts
+@@ -32,6 +32,7 @@ import TNewLeadLogEvent = Notification.TNewLeadLogEvent;
+ // События которые можно группировать
+ const GROUP_EVENTS = [
+     EEventType.RELATION_WITH_CALL_CREATED,
++    EEventType.MISSED_CALL_CREATED,
+     EEventType.RELATION_WITH_MAIL_SERVER_MESSAGE_CREATED,
+     EEventType.RELATION_WITH_AVITO_CHAT_MESSAGE_CREATED,
+     EEventType.RELATION_WITH_EDNA_MESSAGE_CREATED,
+@@ -587,6 +588,24 @@ const TEMPLATE = `
+                 data-show-error="$ctrl.useDetailedLogMode"
+                 readonly="$ctrl.readonly"
+             ></event-child-lead-removed>
++            
++            <event-missed-call-created
++                class="amd-lead-log__event"
++                ng-switch-when="${EEventType.MISSED_CALL_CREATED}"
++                data-lead="$ctrl.lead"
++                data-events="event.event"
++                data-group="event.group"
++                readonly="$ctrl.readonly"
++            ></event-missed-call-created>
++            
++            <event-missed-call-deleted
++                class="amd-lead-log__event"
++                ng-switch-when="${EEventType.MISSED_CALL_DELETED}"
++                data-events="event.event"
++                data-group="event.group"
++                data-show-error="$ctrl.useDetailedLogMode"
++                readonly="$ctrl.readonly"
++            ></event-missed-call-deleted>
+         </div>
+     </div>
+ </div>
+@@ -752,6 +771,7 @@ export class LeadLoggerComponent implements IComponentController
+             this.reverseLeadLogEvents = +this.lead.reverseLeadLogEvents != 0;
+         }
+ 
++        console.log(this.lead.log) // frolov debug
+         if (this.lead.id) {
+             let wampTimer;
+             this.wampClient = new WampClient();
+@@ -885,6 +905,8 @@ export class LeadLoggerComponent implements IComponentController
+             )
+         );
+ 
++        console.log(cleanList) // frolov debug
++
+         let prevEventType: EEventType = null;
+         let leadPeriods: Record<string, any> = {};
+         let prevParticipantsIdentifier: string = null;
+diff --git a/typescript/app/application/sales-funnel/lead-log/event.types.ts b/typescript/app/application/sales-funnel/lead-log/event.types.ts
+index 64ea928379..a17f8649c2 100644
+--- a/typescript/app/application/sales-funnel/lead-log/event.types.ts
++++ b/typescript/app/application/sales-funnel/lead-log/event.types.ts
+@@ -58,6 +58,9 @@ export enum EEventType
+     LEAD_MESSAGE_SENDED_FAIL = 'App\\Event\\SalesFunnel\\Type\\Channel\\FailedChannelMessageEvent',
+     LEAD_FIELD_CHANGED = 'App\\Event\\SalesFunnel\\Type\\LeadFieldChanged',
+     CHILD_LEAD_REMOVED = 'App\\Event\\SalesFunnel\\Type\\ChildLeadRemoved',
++
++    MISSED_CALL_CREATED = 'App\\Event\\SalesFunnel\\Type\\Relation\\MissedCallCreated',
++    MISSED_CALL_DELETED = 'App\\Event\\SalesFunnel\\Type\\Relation\\MissedCallDeleted',
+ }
+ 
+ /**
+diff --git a/typescript/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.ts b/typescript/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.ts
+index 6e8b79c625..91dd68060a 100644
+--- a/typescript/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.ts
++++ b/typescript/app/application/sales-funnel/lead-log/sales-funnel.lead-log.module.ts
+@@ -13,6 +13,10 @@ import {LeadCreationComponent} from "./component/event/lead-creation.component";
+ import {LeadStageChangedComponent} from "./component/event/lead-stage-changed.component";
+ import {LeadPhoneAddedComponent} from "./component/event/lead-phone-added.component";
+ import {RelationWithCallCreatedComponent} from "./component/event/relation-with-call-created.component";
++
++import {MissedCallCreatedComponent} from "./component/event/missed-call-created.component";
++import {MissedCallDeletedComponent} from "./component/event/missed-call-deleted.component";
++
+ import {RelationWithCallRemovedComponent} from "./component/event/relation-with-call-removed.component";
+ import {
+     RelationWithMailServerMessageCreatedComponent
+@@ -195,7 +199,11 @@ import {LeadConfirmedComponent} from "./component/event/lead-confirmed";
+         ChildLeadRemovedComponent,
+ 
+         LeadPhoneRemovedComponent,
+-        LeadEmailRemovedComponent
++        LeadEmailRemovedComponent,
++
++        MissedCallCreatedComponent,
++        MissedCallDeletedComponent
++
+     ],
+     providers: [
+         LeadEventsBackendService,
+diff --git a/typescript/app/application/sales-funnel/lead-log/types.d.ts b/typescript/app/application/sales-funnel/lead-log/types.d.ts
+index 790b390a6a..fcbae61bbe 100644
+--- a/typescript/app/application/sales-funnel/lead-log/types.d.ts
++++ b/typescript/app/application/sales-funnel/lead-log/types.d.ts
+@@ -57,6 +57,33 @@ export namespace SalesFunnel_LeadLog
+         }
+     };
+ 
++    type TEventMissedCall = TEvent & {
++        data: {
++            callRegistryId: number,
++            callUrl: string,
++            incoming: boolean,
++            outgoing: boolean,
++            phone: string,
++            user: string,
++            duration: string,
++            atsRecordUrl: string,
++            atsRecordAllowed: boolean,
++            transcription: {
++                id: number,
++                isReady: boolean,
++                transcription: {
++                    text: string,
++                    direction: "client" | "operator",
++                    begin: number,
++                }[],
++                fragmentTags: TAmdAudioPlayerFragmentTag[],
++                comments: {
++                    message:string,
++                }[],
++            } | null,
++        }
++    };
++
+     type TEventRelationWithMailServerMessage = TEvent & {
+         data: {
+             id: number

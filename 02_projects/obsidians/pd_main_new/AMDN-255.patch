@@ -1,0 +1,106 @@
+diff --git a/images/php-fpm/Dockerfile b/images/php-fpm/Dockerfile
+index b84b3bb..e3e9381 100644
+--- a/images/php-fpm/Dockerfile
++++ b/images/php-fpm/Dockerfile
+@@ -1,40 +1,78 @@
+-# Dockerfile для работы сервиса php-fpm
+-
+ FROM php:8.4-fpm-alpine
+ 
+-RUN apk add --update --no-cache imagemagick-dev gcc g++ make autoconf
+-RUN pecl install imagick-3.8.0 && docker-php-ext-enable imagick
++# Установка зависимостей
++RUN apk add --no-cache \
++    autoconf \
++    gcc \
++    g++ \
++    make \
++    imagemagick-dev \
++    imap-dev \
++    openssl-dev \
++    krb5-dev \
++    libmemcached-dev \
++    zlib-dev \
++    libpng-dev \
++    libzip-dev \
++    gmp-dev \
++    git \
++    cmake
++
++# Установка расширения imagick через системный пакет (предпочтительно)
++# Проверьте, доступен ли пакет для вашей версии Alpine/php
++RUN apk add --no-cache --virtual .phpize-deps $PHPIZE_DEPS && \
++    # Попробовать установить через pecl последнюю версию, если системный пакет недоступен
++    pecl install imagick && \
++    docker-php-ext-enable imagick && \
++    # Удаляем временные зависимости для уменьшения размера образа
++    apk del .phpize-deps
+ 
+-RUN apk add --no-cache imap-dev openssl-dev krb5-dev
+-RUN pecl install imap-1.0.3 && docker-php-ext-enable imap
++# Установка расширения imap
++RUN pecl install imap && docker-php-ext-enable imap
+ 
+-RUN apk add --no-cache libmemcached-dev zlib-dev
+-RUN pecl install memcache-8.2 && docker-php-ext-enable memcache
++# Установка расширения memcached (предпочтительно вместо устаревшего memcache)
++# memcache для PHP 8.0+ не рекомендуется; используем memcached
++RUN pecl install memcached && docker-php-ext-enable memcached
+ 
+-#extensions
+-RUN docker-php-ext-install mysqli pdo pdo_mysql
+-RUN apk add --no-cache libpng-dev && docker-php-ext-install gd
+-RUN apk add --no-cache libzip-dev && docker-php-ext-install zip
+-RUN docker-php-ext-install bcmath
+-RUN apk add --no-cache gmp-dev && docker-php-ext-install gmp
+-RUN docker-php-ext-configure pcntl --enable-pcntl
+-RUN docker-php-ext-install pcntl
++# Установка стандартных расширений
++RUN docker-php-ext-install -j$(nproc) \
++    mysqli \
++    pdo \
++    pdo_mysql \
++    gd \
++    zip \
++    bcmath \
++    gmp \
++    pcntl
+ 
++# Настройка часового пояса
+ ENV TZ=Europe/Moscow
+ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ RUN printf '[PHP]\ndate.timezone = "${TZ}"\n' > /usr/local/etc/php/conf.d/tzone.ini
+ 
+-#GOST
+-RUN apk add --no-cache git cmake openssl-dev
+-RUN git clone https://github.com/gost-engine/engine /tmp/gost && \
++# Установка GOST-движка (обновлённая инструкция)
++# Важно: Используем ветку, совместимую с OpenSSL 3.x (иначе ошибка при сборке)
++RUN git clone -b master --single-branch https://github.com/gost-engine/engine /tmp/gost && \
+     cd /tmp/gost && \
+     git submodule update --init && \
+-    mkdir build && \
++    mkdir -p build && \
+     cd build && \
+     cmake -DCMAKE_BUILD_TYPE=Release .. && \
+     cmake --build . --config Release && \
+     cmake --build . --target install --config Release && \
+-    mkdir -p /usr/lib/x86_64-linux-gnu/engines-3 && \
+-    cp ./bin/gost.so /usr/lib/x86_64-linux-gnu/engines-3/gost.so
++    # Путь к директории с движками зависит от версии OpenSSL. Для OpenSSL 3.x это, как правило, /usr/lib/x86_64-linux-gnu/engines-3 или /usr/lib/engines-3
++    # Проверим и создадим директорию, если нужно. Для Alpine часто используется /usr/lib/engines-3
++    mkdir -p /usr/lib/engines-3 && \
++    cp ./bin/gost.so /usr/lib/engines-3/gost.so && \
++    # Или для систем, где используется lib64
++    # mkdir -p /usr/lib64/engines-3 && \
++    # cp ./bin/gost.so /usr/lib64/engines-3/gost.so && \
++    # Убедитесь, что OpenSSL может найти движок. Иногда нужно указать путь в конфигурации.
++    cd / && \
++    rm -rf /tmp/gost
+ 
++# Установка Composer
+ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
++
++# Проверка установки расширений (опционально)
++# RUN php -m
+\ No newline at end of file

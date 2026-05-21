@@ -1,0 +1,70 @@
+diff --git a/library/App/SalesFunnel/Filter/Lead/Filter.php b/library/App/SalesFunnel/Filter/Lead/Filter.php
+index 0460c4aee4..9b75c12d82 100644
+--- a/library/App/SalesFunnel/Filter/Lead/Filter.php
++++ b/library/App/SalesFunnel/Filter/Lead/Filter.php
+@@ -709,30 +709,41 @@ class Filter extends AbstractFilter
+ 
+     protected function addEmailMask(): self
+     {
+-        return $this->addMask([
+-            'type'      => StringMask::class,
+-            'caption'   => 'Почта',
+-            'name'      => 'emails_hash',
+-            'target'    => 'sfle.email_hash',
+-            'filterUse' => 'select',
+-            'split'     => ['emails_hash', ','],
+-            'options'   => (new DbOptions(
+-                "
+-                    SELECT DISTINCT
+-                        sfle.email_hash AS v,
+-                        sfle.email AS t
+-                    FROM sales_funnel_lead_email AS sfle
+-                    JOIN sales_funnel_lead AS sfl ON
+-                        sfl.id = sfle.lead_id
+-                    JOIN sales_funnel_stage AS sfs ON
+-                        sfs.id = sfl.stage_id
+-                    JOIN orgstructure_users AS ou ON
+-                        ou.userId = sfl.user_id
+-                    {WHERE}
+-                    ORDER BY t
+-                "
+-            ))->addDecorator($this->getOptionsQueryDecorator()),
+-        ]);
++        $this->addMask(
++            (new StringMask())
++                ->setCaption('Почта')
++                ->setName('emails_hash')
++                ->setTarget("sfle.email_hash")
++                ->setNullable(true)
++                ->setNullableValue(-1)
++                ->setMaskUse(false)
++                ->setSplit(['emails_hash', ','])
++                ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
++                ->setOptions(
++                    (new DbOptions("
++                    SELECT
++                        -1 AS v,
++                        'Пусто' AS t
++                    UNION ALL
++                    SELECT * FROM (
++                        SELECT DISTINCT
++                            sfle.email_hash AS v,
++                            sfle.email AS t
++                        FROM sales_funnel_lead_email AS sfle
++                        JOIN sales_funnel_lead AS sfl ON
++                            sfl.id = sfle.lead_id
++                        JOIN sales_funnel_stage AS sfs ON
++                            sfs.id = sfl.stage_id
++                        JOIN orgstructure_users AS ou ON
++                            ou.userId = sfl.user_id
++                        {WHERE}
++                        ORDER BY t
++                    ) AS t"
++                    ))->addDecorator($this->getOptionsQueryDecorator())
++                )
++        );
++
++        return $this;
+     }
+ 
+     protected function addStageId(): self

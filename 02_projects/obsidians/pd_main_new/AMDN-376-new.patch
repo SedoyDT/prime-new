@@ -1,0 +1,373 @@
+diff --git a/library/App/SalesFunnel/EventSubscriber/LeadActivitySubscriber.php b/library/App/SalesFunnel/EventSubscriber/LeadActivitySubscriber.php
+index cb17e19786..bd4cdb4ea9 100644
+--- a/library/App/SalesFunnel/EventSubscriber/LeadActivitySubscriber.php
++++ b/library/App/SalesFunnel/EventSubscriber/LeadActivitySubscriber.php
+@@ -65,6 +65,8 @@ class LeadActivitySubscriber extends CurrentProjectEventSubscriber
+     {
+         $subject = $event->getSubject();
+ 
++        $condition = ($subject instanceof \App\Event\SalesFunnel\Subject\LeadRelation) && \App_Project_Config_Main::getCurrentProjectId();
++
+         if (
+             // события изменения связи сущностей и лидов обрабатываются только, если лид с текущего проекта
+             !(
+@@ -72,35 +74,26 @@ class LeadActivitySubscriber extends CurrentProjectEventSubscriber
+                 $subject->leadProjectId != \App_Project_Config_Main::getCurrentProjectId()
+             )
+         ) {
+-                $events = \App_Db_SalesFunnelLeadActivityEvent::obtain()->getRowsFields(['event_name'], [
++                $events = \App_Db_SalesFunnelLeadActivityEvent::obtain()->getRowsField('event_name', [
+                     'is_active = ?' => 1
+-                ],[],Zend_DB::FETCH_ASSOC);
++                ],[]);
+ 
+-                $flatEvents = iterator_to_array(
+-                    new RecursiveIteratorIterator(
+-                        new RecursiveArrayIterator($events)
+-                    ),
+-                    false
+-                );
+ 
+-                $isEventActivatedAsActivity = in_array(get_class($event), $flatEvents);
++                $isEventActivatedAsActivity = in_array(get_class($event), $events);
+ 
+                 if (!$isEventActivatedAsActivity) {
+                     return;
+                 } else {
+ 
+-                    $fields = \App_Db_SalesFunnelLeadActivityField::obtain()->getRowsFields(['field'], [
++                    $fields = \App_Db_SalesFunnelLeadActivityField::obtain()->getRowsField('field', [
+                         'is_active = ?' => 0
+-                    ],[],Zend_DB::FETCH_ASSOC);
+-
+-                    $flatFields = iterator_to_array(
+-                        new RecursiveIteratorIterator(
+-                            new RecursiveArrayIterator($fields)
+-                        ), false
+-                    );
+-                        if (in_array($event->getSubject()->field, $flatFields)) {
++                    ],[]);
++
++                    if ($event instanceof Type\LeadFieldChanged && $event->getSubject()->field) {
++                        if (in_array($event->getSubject()->field, $fields)) {
+                             return;
+                         }
++                    }
+                 }
+ 
+                 return ;
+@@ -130,6 +123,7 @@ class LeadActivitySubscriber extends CurrentProjectEventSubscriber
+             $lead = $this->leadFactory->fromId($leadId);
+             if ($lead->getEntity()->getId() > 0) {
+                 $lead->updateLastActivityDate($subject->time);
++                $lead->updateActivityCounter(1);
+                 $this->leadCrud->saveModel($lead);
+             }
+         }
+diff --git a/library/App/SalesFunnel/Lead/Entity.php b/library/App/SalesFunnel/Lead/Entity.php
+index 9f72e2f0c3..2f9b307c8d 100644
+--- a/library/App/SalesFunnel/Lead/Entity.php
++++ b/library/App/SalesFunnel/Lead/Entity.php
+@@ -203,6 +203,12 @@ class Entity extends ObservableEntity
+      */
+     private $clientInn;
+ 
++    /**
++     * Кол-во активностей лида
++     * @var int | null
++     */
++    private $activities;
++
+     /**
+      * @param $id
+      */
+@@ -239,6 +245,7 @@ class Entity extends ObservableEntity
+         $this->isClientMarketing = ChangeNotifierType::withName('isClientMarketing')->attach($this)->set(false);
+         $this->clientInn = ChangeNotifierType::withName('clientInn')->attach($this);
+         $this->avitoChatId = ChangeNotifierType::withName('avitoChatId')->attach($this);
++        $this->activities = ChangeNotifierType::withName('activities')->attach($this);
+     }
+ 
+ 
+@@ -809,4 +816,21 @@ class Entity extends ObservableEntity
+         $this->clientInn->set($clientInn);
+         return $this;
+     }
++
++    /**
++     * @return ChangeNotifierType|int|void|null
++     */
++    public function getActivities(): int|ChangeNotifierType|null
++    {
++        return $this->activities;
++    }
++
++    /**
++     * @param ChangeNotifierType|int|void|null $activities
++     */
++    public function setActivities(int|ChangeNotifierType|null $activities): self
++    {
++        $this->activities = $activities;
++        return $this;
++    }
+ }
+diff --git a/library/App/SalesFunnel/Lead/Model.php b/library/App/SalesFunnel/Lead/Model.php
+index 484b52b458..050c4bf4d1 100644
+--- a/library/App/SalesFunnel/Lead/Model.php
++++ b/library/App/SalesFunnel/Lead/Model.php
+@@ -444,4 +444,10 @@ class Model extends AbstractModel implements \JsonSerializable
+             'created_at' => $this->getEntity()->getCreatedAt()->format('c'),
+         ];
+     }
++
++    public function updateActivityCounter(int $value): void
++    {
++        $this->getEntity()->setActivities($value);
++
++    }
+ }
+diff --git a/library/App/Service/EventService.php b/library/App/Service/EventService.php
+index dfe3cc1012..a72395b140 100644
+--- a/library/App/Service/EventService.php
++++ b/library/App/Service/EventService.php
+@@ -160,62 +160,66 @@ class EventService
+         // добавляем подписчиков на события
+         if (\App_Project_Repository::getInstance()->getCurrentProject()->isGlobalProject()) {
+             $this->defferedSubscriberClassList = $this->normilizeSubscriberSettings([
+-                ClientSubscriber::class => "*",
+-                CallSubscriber::class => "*",
+-                ClientGroupSubscriber::class => "*",
+-                AgreementListSubscriber::class => "*",
+-                CalculationSheetSubscriber::class => "*",
+-                CashSubscriber::class => "*",
+-                ClaimSubscriber::class => "*",
+-                DepotSubscriber::class => "*",
+-                ClientContractSubscriber::class => "*",
+-                InvoiceSubscriber::class => "*",
+-                JudicialSubscriber::class => "*",
+-                UserSubscriber::class => "*",
+-                DepartmentSubscriber::class => "*",
++                \App\SalesFunnel\EventSubscriber\LeadActivitySubscriber::class => '*'
++
++//                ClientSubscriber::class => "*",
++//                CallSubscriber::class => "*",
++//                ClientGroupSubscriber::class => "*",
++//                AgreementListSubscriber::class => "*",
++//                CalculationSheetSubscriber::class => "*",
++//                CashSubscriber::class => "*",
++//                ClaimSubscriber::class => "*",
++//                DepotSubscriber::class => "*",
++//                ClientContractSubscriber::class => "*",
++//                InvoiceSubscriber::class => "*",
++//                JudicialSubscriber::class => "*",
++//                UserSubscriber::class => "*",
++//                DepartmentSubscriber::class => "*",
+             ]);
+         } else {
+             $subscribers = [
+-                SalesFunnelSubscribers\CallEventSubscriber::class,
+-                SalesFunnelSubscribers\ClientEventSubscriber::class,
+-                SalesFunnelSubscribers\CashEventSubscriber::class,
+-                SalesFunnelSubscribers\InvoiceEventSubscriber::class,
+-                SalesFunnelSubscribers\LogEventSubscriber::class,
+-                SalesFunnelSubscribers\LeadAutomatizationEventSubscriber::class => (new AutomatizationSettings())->getProjects(),
+-                SalesFunnelSubscribers\SalesFunnelEventSubscriber::class,
+-                SalesFunnelSubscribers\ClaimEventSubscriber::class => (new LeadRelationSettings())->getRelationProjects(),
+-                SalesFunnelSubscribers\LeadAggregatedDataSubscriber::class,
+-                SalesFunnelSubscribers\QualityControlEventSubscriber::class,
+-
+-                \App\Calendar\Sync\EventSubscriber::class,
+-
+-                SalesFunnelSubscribers\LeadRelationEventSubscriber::class,
+-                SalesFunnelSubscribers\AvitoEventSubscriber::class,
+-
+-                \App\Avito\AvitoEventSubscriber::class,
+-                StaffTasksEventSubscriber::class,
+-                SalesFunnelSubscribers\LeadActivitySubscriber::class,
+-
+-                SalesFunnelSubscribers\ClientGroupEventSubscriber::class,
+-
+-                ClaimEventSubscribers\SalesFunnelEventSubscriber::class => (new LeadRelationSettings())->getRelationProjects(),
+-
+-                \App\Cash\ChargeOffRequests\EventSubscriber\CashEventSubscriber::class,
+-                \App\SalesFunnel\EventSubscriber\EdnaEventSubscriber::class,
+-
+-                \App\Libdoc\Offers\EventSubscriber\LeadRelationEventSubscriber::class,
+-
+-                \App\FreeClients\EventSubscriber\LibdocOfferSubscriber::class,
+-
+-                \App\ScheduledTask\ScheduledTaskSubscriber::class,
+-
+-                \App\Finance\Ticket\Document\EdmDocument\EventSubscriber::class,
+-
+-                \App\Cash\EventSubscriber::class,
+-
+-                \App\Call\EventSubscriber\MissedCallEventSubscriber::class,
+-
+-                \App\MailClient\EventSubscriber\MailServerEventSubscriber::class,
++                \App\SalesFunnel\EventSubscriber\LeadActivitySubscriber::class
++
++//                SalesFunnelSubscribers\CallEventSubscriber::class,
++//                SalesFunnelSubscribers\ClientEventSubscriber::class,
++//                SalesFunnelSubscribers\CashEventSubscriber::class,
++//                SalesFunnelSubscribers\InvoiceEventSubscriber::class,
++//                SalesFunnelSubscribers\LogEventSubscriber::class,
++//                SalesFunnelSubscribers\LeadAutomatizationEventSubscriber::class => (new AutomatizationSettings())->getProjects(),
++//                SalesFunnelSubscribers\SalesFunnelEventSubscriber::class,
++//                SalesFunnelSubscribers\ClaimEventSubscriber::class => (new LeadRelationSettings())->getRelationProjects(),
++//                SalesFunnelSubscribers\LeadAggregatedDataSubscriber::class,
++//                SalesFunnelSubscribers\QualityControlEventSubscriber::class,
++//
++//                \App\Calendar\Sync\EventSubscriber::class,
++//
++//                SalesFunnelSubscribers\LeadRelationEventSubscriber::class,
++//                SalesFunnelSubscribers\AvitoEventSubscriber::class,
++//
++//                \App\Avito\AvitoEventSubscriber::class,
++//                StaffTasksEventSubscriber::class,
++//                SalesFunnelSubscribers\LeadActivitySubscriber::class,
++//
++//                SalesFunnelSubscribers\ClientGroupEventSubscriber::class,
++//
++//                ClaimEventSubscribers\SalesFunnelEventSubscriber::class => (new LeadRelationSettings())->getRelationProjects(),
++//
++//                \App\Cash\ChargeOffRequests\EventSubscriber\CashEventSubscriber::class,
++//                \App\SalesFunnel\EventSubscriber\EdnaEventSubscriber::class,
++//
++//                \App\Libdoc\Offers\EventSubscriber\LeadRelationEventSubscriber::class,
++//
++//                \App\FreeClients\EventSubscriber\LibdocOfferSubscriber::class,
++//
++//                \App\ScheduledTask\ScheduledTaskSubscriber::class,
++//
++//                \App\Finance\Ticket\Document\EdmDocument\EventSubscriber::class,
++//
++//                \App\Cash\EventSubscriber::class,
++//
++//                \App\Call\EventSubscriber\MissedCallEventSubscriber::class,
++//
++//                \App\MailClient\EventSubscriber\MailServerEventSubscriber::class,
+             ];
+ 
+             $this->addLinkedClaimEventSubscriber($subscribers);
+@@ -252,10 +256,11 @@ class EventService
+                 APPLICATION_ENV === 'project11' ||
+                 APPLICATION_ENV === 'project15'
+             ) {
+-                $subscribers[] = \App\Analytics\SalesPlanning\EventSubscriber\ClaimEventSubscriber::class;
+-                $subscribers[] = \App\Analytics\SalesPlanning\EventSubscriber\CashEventSubscriber::class;
+-                $subscribers[] = \App\Analytics\SalesPlanning\EventSubscriber\ClientEventSubscriber::class;
+-                $subscribers[] = \App\Analytics\SalesPlanning\EventSubscriber\SalesFunnelEventSubscriber::class;
++//                $subscribers[] = \App\Analytics\SalesPlanning\EventSubscriber\ClaimEventSubscriber::class;
++//                $subscribers[] = \App\Analytics\SalesPlanning\EventSubscriber\CashEventSubscriber::class;
++//                $subscribers[] = \App\Analytics\SalesPlanning\EventSubscriber\ClientEventSubscriber::class;
++                $subscribers[] =            \App\SalesFunnel\EventSubscriber\LeadActivitySubscriber::class;
++
+             }
+ 
+             $this->defferedSubscriberClassList = $this->normilizeSubscriberSettings($subscribers);
+@@ -296,10 +301,12 @@ class EventService
+     public function initMailServerSubscribers() : EventService
+     {
+         $subscribers = [
+-            \App\FreeClients\EventSubscriber\MailServerEventSubscriber::class,
+-            \App\SalesFunnel\EventSubscriber\MailServerEventSubscriber::class,
+-            \App\Analytics\ClientInterception\Email\InterceptionData\MailEventSubscriber::class,
+-            StaffTasksEventSubscriber::class,
++//            \App\FreeClients\EventSubscriber\MailServerEventSubscriber::class,
++//            \App\SalesFunnel\EventSubscriber\MailServerEventSubscriber::class,
++//            \App\Analytics\ClientInterception\Email\InterceptionData\MailEventSubscriber::class,
++//            StaffTasksEventSubscriber::class,
++            \App\SalesFunnel\EventSubscriber\LeadActivitySubscriber::class
++
+         ];
+ 
+         $this->defferedSubscriberClassList = $this->normilizeSubscriberSettings($subscribers);
+@@ -395,4 +402,15 @@ class EventService
+ 
+         return $normSubscriberSettings;
+     }
++
++
++    public function setDefferedSubscriberClassList(array $classList)
++    {
++        $this->defferedSubscriberClassList = $classList;
++    }
++
++    public function setImmediateSubscriberClassList(array $classList)
++    {
++        $this->immediateSubscriberClassList = $classList;
++    }
+ }
+diff --git a/protected/scripts/amd-598.php b/protected/scripts/amd-598.php
+index 92fdf30e1a..76a87fee74 100644
+--- a/protected/scripts/amd-598.php
++++ b/protected/scripts/amd-598.php
+@@ -83,7 +83,7 @@ class LeadGenerator
+ 
+         /** @var Factory $stageFactory */
+         $stageFactory           = $container->make(Factory::class);
+-        $this->stagesCollection = $stageFactory->collectionFromFunnel(FUNNEL_ID);
++        $this->stagesCollection = $stageFactory->collectionFromFunnel([FUNNEL_ID]);
+ 
+         $this->leadCrud = $container->make(Crud::class);
+ 
+diff --git a/query/admn-376.sql b/query/admn-376.sql
+index a891da00a4..19ccd532b1 100644
+--- a/query/admn-376.sql
++++ b/query/admn-376.sql
+@@ -85,4 +85,7 @@ VALUES
+     ('App\\Event\\SalesFunnel\\Type\\File\\Removed', 'Удаление файла у лида'),
+     ('App\\Event\\SalesFunnel\\Type\\OwnershipTransfer\\RequestCreated', 'Создание запроса на передачу лида'),
+     ('App\\Event\\SalesFunnel\\Type\\Channel\\SentChannelMessageEvent', 'Успешная отправка сообщения через канал коммуникации'),
+-    ('App\\Event\\SalesFunnel\\Type\\Channel\\FailedChannelMessageEvent', 'Неудачная попытка отправки сообщения через канал коммуникации');
+\ No newline at end of file
++    ('App\\Event\\SalesFunnel\\Type\\Channel\\FailedChannelMessageEvent', 'Неудачная попытка отправки сообщения через канал коммуникации');
++
++ALTER TABLE sales_funnel_lead
++    ADD column activities INT UNSIGNED DEFAULT 0 COMMENT 'Кол-во активностей лида';
+\ No newline at end of file
+diff --git a/tests/suites/Integration/library/App/SalesFunnel/EventGenerationTest.php b/tests/suites/Integration/library/App/SalesFunnel/EventGenerationTest.php
+index e3f3be263b..4b5a0dc7e8 100644
+--- a/tests/suites/Integration/library/App/SalesFunnel/EventGenerationTest.php
++++ b/tests/suites/Integration/library/App/SalesFunnel/EventGenerationTest.php
+@@ -92,8 +92,7 @@ class EventGenerationTest extends \PHPUnit\Framework\TestCase
+         $this->eventService->setDefferedSubscriberClassList($subscribers);
+         $this->eventService->setImmediateSubscriberClassList($subscribers);
+ 
+-        echo "<pre>" . print_r('her', true); echo "</pre>"; // FrolovDEBUG
+-        exit();
++
+         echo "Setup test " . __CLASS__ . PHP_EOL;
+     }
+ 
+@@ -140,13 +139,14 @@ class EventGenerationTest extends \PHPUnit\Framework\TestCase
+             $form
+         );
+ 
+-        echo "<pre>" . print_r($lead->getEntity()->getAssigneeId(), true); echo "</pre>"; // FrolovDEBUG
+-        exit();
++
+         foreach ($keyAliases AS $alias) {
+             switch ($alias) {
+                 case \App\Event\SalesFunnel\Type\LeadCreation::class:
+-                    $subject = (new \App\Event\SalesFunnel\Subject\Lead())->setLeadId(null);
+-                    return new \App\Event\SalesFunnel\Type\LeadCreation($subject);
++                    $subject = (new \App\Event\SalesFunnel\Subject\Lead())->setLeadId($lead->getEntity()->getId());
++                    $event =  new \App\Event\SalesFunnel\Type\LeadCreation($subject);
++                    $this->eventService->trigger($event);
++
+                     break;
+             }
+         }
+@@ -155,7 +155,9 @@ class EventGenerationTest extends \PHPUnit\Framework\TestCase
+             switch ($alias) {
+                 case \App\Event\SalesFunnel\Type\LeadCreation::class:
+                     $subject = (new \App\Event\SalesFunnel\Subject\Lead())->setLeadId(null);
+-                    return new \App\Event\SalesFunnel\Type\LeadCreation($subject);
++                    $event = new \App\Event\SalesFunnel\Type\LeadCreation($subject);
++                    $this->eventService->trigger($event);
++
+                     break;
+ 
+                 case \App\Event\SalesFunnel\Type\LeadClosed::class:

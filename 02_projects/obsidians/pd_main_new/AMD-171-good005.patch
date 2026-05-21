@@ -1,0 +1,79 @@
+diff --git a/application/modules/network/controllers/RecieveController.php b/application/modules/network/controllers/RecieveController.php
+index a3af5c124b..a05e56f062 100644
+--- a/application/modules/network/controllers/RecieveController.php
++++ b/application/modules/network/controllers/RecieveController.php
+@@ -20,6 +20,15 @@ class Network_RecieveController extends Zend_Controller_Action
+     {
+         $controller = new App_Network_Reciever_Controller();
+ 
++//        echo "<pre>" . print_r('module', true); echo "</pre>"; // FrolovDEBUG
++//        echo "<pre>" . print_r($this->getRequest()->getPost('module'), true); echo "</pre>"; // FrolovDEBUG
++//        exit();
++
++//        echo "<pre>" . print_r($this->getRequest()->getPost('module'), true); echo "</pre>"; // FrolovDEBUG
++//        exit();
++
++//        echo "<pre>" . print_r($controller, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         $controller->setProjectId($this->getRequest()->getPost('project_id'));
+         $controller->setModule($this->getRequest()->getPost('module'));
+         $controller->setAction($this->getRequest()->getPost('action'));
+diff --git a/library/App/Network/Reciever/Controller.php b/library/App/Network/Reciever/Controller.php
+index cae6d36668..b3b2a447a5 100644
+--- a/library/App/Network/Reciever/Controller.php
++++ b/library/App/Network/Reciever/Controller.php
+@@ -138,6 +138,11 @@ class App_Network_Reciever_Controller
+     {
+         $requestResult = new App_Network_Request_Result();
+ 
++//        echo "<pre>" . print_r($requestResult, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
++        echo "<pre>" . print_r('piiiidoor', true); echo "</pre>"; // FrolovDEBUG
++        echo "<pre>" . print_r($this->getModule(), true); echo "</pre>"; // FrolovDEBUG
++        exit();
+         try {
+             $reciever = App_Network_Reciever_Factory::create($this->getModule());
+ 
+diff --git a/library/App/Network/Sender/Abstract.php b/library/App/Network/Sender/Abstract.php
+index ff240989bc..da07aaaece 100644
+--- a/library/App/Network/Sender/Abstract.php
++++ b/library/App/Network/Sender/Abstract.php
+@@ -175,6 +175,8 @@ class App_Network_Sender_Abstract
+     {
+         $this->prepareCurl();
+ 
++//        echo "<pre>" . print_r($this->_getUrl(), true); echo "</pre>"; // FrolovDEBUG
++//        exit();;
+         $result = curl_exec($this->_curl);
+ 
+         return $this->handleCurlResult($result);
+diff --git a/library/App/Network/Service/Synchronize/Synchronizator.php b/library/App/Network/Service/Synchronize/Synchronizator.php
+index 69983987b9..f346a2c609 100644
+--- a/library/App/Network/Service/Synchronize/Synchronizator.php
++++ b/library/App/Network/Service/Synchronize/Synchronizator.php
+@@ -112,10 +112,16 @@ class Synchronizator
+ 
+             $logger->info('Sending data');
+             $sender = new \App_Network_Service_Synchronize_Sender();
++//            echo "<pre>" . print_r($projectModel->getId(), true); echo "</pre>"; // FrolovDEBUG
++//            exit();
++
+             $sender->setProjectId($projectModel->getId());
+             // отправка данных
+             $sendResult = $sender->synchronize($dataToSend, $filesToSend);
+ 
++//            echo "<pre>" . print_r('$sendResult', true); echo "</pre>"; // FrolovDEBUG
++//            echo "<pre>" . print_r($sender->getRequestResult()->getErrors(), true); echo "</pre>"; // FrolovDEBUG
++//            exit();
+             // обработка результата
+             $error = null;
+             if (!$sendResult) {
+@@ -126,6 +132,8 @@ class Synchronizator
+                 $error = 'Service from ' . ($projectModel->getFullUrl()) . ' returned error: ' . implode(',', $sender->getRequestResult()->getErrors()) . '. Wanted to send: ' . print_r($data, true);
+             }
+ 
++//            echo "<pre>" . print_r('here', true); echo "</pre>"; // FrolovDEBUG
++//            exit();
+             if (!empty($error)) {
+                 throw new \RuntimeException($error);
+             }

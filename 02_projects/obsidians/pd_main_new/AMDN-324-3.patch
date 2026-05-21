@@ -1,0 +1,510 @@
+diff --git a/application/modules/agreement/controllers/EditController.php b/application/modules/agreement/controllers/EditController.php
+index 90aa58344c..360fb33300 100644
+--- a/application/modules/agreement/controllers/EditController.php
++++ b/application/modules/agreement/controllers/EditController.php
+@@ -289,6 +289,30 @@ class Agreement_EditController extends Zend_Controller_Action
+         $this->_helper->json($upload);
+     }
+ 
++    public function uploadSingleAction()
++    {
++        echo "<pre>" . print_r('hre', true); echo "</pre>"; // FrolovDEBUG
++        exit();
++        // ID листа согласования и название директории
++        $listId = (int) $this->_getParam('listId');
++        $typeId = (int) $this->_getParam('typeId');
++
++        // Модель для работы с файлами
++        $fileModel = App_Agreement_Files_Factory::getInstance()->getModelByType($typeId);
++
++        // Запрос на загрузку
++        $upload = $fileModel->upload(
++            array(
++                'directoryId' => $listId,
++                'files' => $_FILES['uploadField'],
++                'typeId' => $typeId,
++                'disagreementIterationCounter' => (int) $this->_getParam('disagreementIterationCounter', 0)
++            )
++        );
++
++        $this->_helper->json($upload);
++    }
++
+ 
+     /**
+      * Удаление файла
+diff --git a/application/modules/agreement/views/scripts/edit/list1.phtml b/application/modules/agreement/views/scripts/edit/list1.phtml
+index b684d1a135..f3c1b540db 100644
+--- a/application/modules/agreement/views/scripts/edit/list1.phtml
++++ b/application/modules/agreement/views/scripts/edit/list1.phtml
+@@ -25,18 +25,18 @@ $this->status_change = App_Access::get('key', 'agreement_list>status_change');
+ ?>
+ <script>
+     $(document).ready(function () {
+-        AgreementListEvents.permissions = <?php echo json_encode($this->permissions) ?>;
+-        AgreementListEvents.skipRequired = <?php echo json_encode(App_Access::get('access', 'agreement_list>skip_required')) ?>;
+-        AgreementListEvents.clientContractType = <?php echo App_Constant_Client_FileType::TREATY?>;
+-        AgreementListEvents.isNextStatusClosed = <?php echo $this->nextStatusObject instanceof App_Agreement_Status_Entity_Sale_CloseStatus ? 'true' : 'false'?>;
+-        AgreementListEvents.clientList = <?php echo json_encode($this->clientList??[]) ?>;
+-        AgreementListEvents.clientId = <?php echo $this->list->clientId ? "\"{$this->list->clientId}\"" : "null" ?>;
+-        AgreementListEvents.returnedByUser = "<?php echo $this->returnedByUser?>";
+-        AgreementListEvents.typeId = 1;
+-        AgreementListEvents.listId = <?php echo $this->list->id; ?>;
+-        AgreementListEvents.listStatus = <?php echo $this->list->status; ?>;
+-        AgreementListEvents.contractDeferment = <?php echo (int) $this->list->contractDeferment; ?>;
+-        AgreementListEvents.leadIdRequired = <?php echo (int) App_Access::get('access', 'agreement_list>lead_id_required')?>;
++        //AgreementListEvents.permissions = <?php //echo json_encode($this->permissions) ?>//;
++        //AgreementListEvents.skipRequired = <?php //echo json_encode(App_Access::get('access', 'agreement_list>skip_required')) ?>//;
++        //AgreementListEvents.clientContractType = <?php //echo App_Constant_Client_FileType::TREATY?>//;
++        //AgreementListEvents.isNextStatusClosed = <?php //echo $this->nextStatusObject instanceof App_Agreement_Status_Entity_Sale_CloseStatus ? 'true' : 'false'?>//;
++        //AgreementListEvents.clientList = <?php //echo json_encode($this->clientList??[]) ?>//;
++        //AgreementListEvents.clientId = <?php //echo $this->list->clientId ? "\"{$this->list->clientId}\"" : "null" ?>//;
++        //AgreementListEvents.returnedByUser = "<?php //echo $this->returnedByUser?>//";
++        //AgreementListEvents.typeId = 1;
++        //AgreementListEvents.listId = <?php //echo $this->list->id; ?>//;
++        //AgreementListEvents.listStatus = <?php //echo $this->list->status; ?>//;
++        //AgreementListEvents.contractDeferment = <?php //echo (int) $this->list->contractDeferment; ?>//;
++        //AgreementListEvents.leadIdRequired = <?php //echo (int) App_Access::get('access', 'agreement_list>lead_id_required')?>//;
+         AgreementListEvents.initListEvents();
+         AgreementListEvents.initContragentEvents();
+ 
+diff --git a/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml b/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml
+index 64daba402c..be5bcf3a2e 100644
+--- a/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml
++++ b/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml
+@@ -2,6 +2,10 @@
+     if (!isset($this->contract->data->p3_1_3_3)) {
+         $this->contract->data->p3_1_3_3 = 0;
+     }
++    if (!isset($this->contract->data->p3_1_3_4)) {
++        $this->contract->data->p3_1_3_4 = 0;
++    }
++
+ ?>
+ 
+ <script>
+@@ -14,6 +18,14 @@
+     //});
+     $(document).ready(function ()
+     {
++
++        RentDocEvents.initListEvents();
++        contractEditionUploader.init();
++        contractEditionUploader.contractId = <?php echo $this->contract->id ?? 0 ?>;
++
++        contractEditionUploader.requiredFiles = 1;
++        contractEditionUploader.updateFilesList();
++
+         $.ajax({
+             url: '/libdoc/contracts/get-data',
+             data: {
+@@ -486,27 +498,70 @@
+                     в дальнейшем совместно именуемые «Стороны», заключили настоящий Акт о нижеследующем:
+                 </div>
+             </div>
+-            <ol class="last-ol">
+-                <li>
+-                    Арендодатель, в соответствии с условиями договора № <?php echo $this->fields->getField('contractNumber'); ?> аренды нежилого помещения от <?php echo $this->fields->getField('contractDate'); ?> (далее - "Договор"),
+-                    передал, а Арендатор принял во временное пользование нежилое помещение, арендуемой площадью:
+-                    <?php echo $this->fields->getField('realtyPlace'); ?> кв.м.,
+-                    расположенное на земельном участке по адресу: <?php echo $this->fields->getField('realtyAddress'); ?>
+-                </li>
+-                <li>
+-                    <?php echo $this->fields->getField('actP2'); ?>
+-                </li>
+-                <li>
+-                    <span>На   момент   составления   настоящего Акта   нежилое помещение находится в следующем техническом состоянии:<?php echo $this->fields->getField('technicalState'); ?>.</span>
+-                </li>
+-                <li>Показатели приборов учета: ____________________________________________________________
+-                    ________________________________________________________________________________________________________________________________________________________________________________________________________</li>
+-                <li>Настоящий акт составлен в двух экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.</li>
+-            </ol>
+-            <div class="page-break-inside_avoid">
+-                <?php echo $this->render($this->pathParts . 'customer-name.phtml'); ?>
+-                <?php echo $this->render($this->pathParts . 'customer-details.phtml'); ?>
+-                <?php echo $this->render($this->pathParts . 'customer-seal.phtml'); ?>
++            <br>
++            <span>
++                <select class="js-building-type no-print" id="p3_1_3_4_select">
++                    <option value="0" <?php echo (int) $this->contract->data->p3_1_3_4 === 0 ? 'selected' : '' ?>>С фотографиями</option>
++                    <option value="1" <?php echo (int) $this->contract->data->p3_1_3_4 === 1 ? 'selected' : '' ?>>Без фотографии</option>
++                </select>
++            </span>
++            <span class="p3_1_3_4_val hidden" data-val="1">
++                <ol class="last-ol">
++                    <li>
++                        Арендодатель, в соответствии с условиями договора № <?php echo $this->fields->getField('contractNumber'); ?> аренды нежилого помещения от <?php echo $this->fields->getField('contractDate'); ?> (далее - "Договор"),
++                        передал, а Арендатор принял во временное пользование нежилое помещение, арендуемой площадью:
++                        <?php echo $this->fields->getField('realtyPlace'); ?> кв.м.,
++                        расположенное на земельном участке по адресу: <?php echo $this->fields->getField('realtyAddress'); ?>
++                    </li>
++                    <li>
++                        <?php echo $this->fields->getField('actP2'); ?>
++                    </li>
++                    <li>
++                        <span>На   момент   составления   настоящего Акта   нежилое помещение находится в следующем техническом состоянии:<?php echo $this->fields->getField('technicalState'); ?>.</span>
++                    </li>
++                    <li>Показатели приборов учета: ____________________________________________________________
++                        ________________________________________________________________________________________________________________________________________________________________________________________________________</li>
++                    <li>Настоящий акт составлен в двух экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.</li>
++                </ol>
++            </span>
++            <span class="p3_1_3_4_val hidden" data-val="0">
++                <ol class="last-ol">
++                    <li>
++                        Арендодатель, в соответствии с условиями договора № <?php echo $this->fields->getField('contractNumber'); ?> аренды нежилого помещения от <?php echo $this->fields->getField('contractDate'); ?> (далее - "Договор"),
++                        передал, а Арендатор принял во временное пользование нежилое помещение, арендуемой площадью:
++                        <?php echo $this->fields->getField('realtyPlace'); ?> кв.м.,
++                        расположенное на земельном участке по адресу: <?php echo $this->fields->getField('realtyAddress'); ?>
++                    </li>
++                    <li>
++                        <?php echo $this->fields->getField('actP2'); ?>
++                    </li>
++                    <li>
++                        <span>На   момент   составления   настоящего Акта   нежилое помещение находится в следующем техническом состоянии:<?php echo $this->fields->getField('technicalState'); ?>.</span>
++                    </li>
++                    <li>
++                        На момент составления настоящего Акта нежилое помещение визуально находится в удовлетворительном состоянии и подтверждается, в том числе, приложенными к настоящему Акту фотографиями нежилого помещения, подписанными обеими сторонами. Стороны подтверждают, что данные фотографии полностью отображают вид данного нежилого помещения и сделаны в момент приемки данного помещения по акту приема-передачи.
++                    </li>
++                    <li>Установлены приборы учета на потребление воды и электроэнергии. Показатели приборов учета: <?php echo $this->fields->getField('instrumentIndicators'); ?>
++                    </li>
++                    <li>
++                        Дополнительные комментарии сторон: __________________________________________________________________
++                    </li>
++                    <li>
++                        <?php echo $this->fields->getField('examples'); ?>
++                    </li>
++                </ol>
++            </span>
++            <span class="p3_1_3_4_val hidden" data-val="0">
++                <p>here</p>
++                <?php echo $this->render('upload.phtml'); ?>
++
++            </span>
++            <div class="pageBreakBefore">
++                <div class="page-break-inside_avoid">
++                    <?php echo $this->render($this->pathParts . 'customer-name.phtml'); ?>
++                    <?php echo $this->render($this->pathParts . 'customer-details.phtml'); ?>
++                    <?php echo $this->render($this->pathParts . 'customer-seal.phtml'); ?>
++                </div>
+             </div>
+         </div>
+     </article>
+diff --git a/library/App/Libdoc/Contracts/Editor/Contract17.php b/library/App/Libdoc/Contracts/Editor/Contract17.php
+index d4678c53f3..0ec38774e1 100644
+--- a/library/App/Libdoc/Contracts/Editor/Contract17.php
++++ b/library/App/Libdoc/Contracts/Editor/Contract17.php
+@@ -53,13 +53,19 @@ class App_Libdoc_Contracts_Editor_Contract17 extends App_Libdoc_Contracts_Editor
+             "/js/libdoc/contracts/editor/contract17/specification.js",
+             "/js/libdoc/contracts/editor/contract17/products.js",
+             "/js/libdoc/contracts/editor/contract17/building-type.js",
++
++            "/js/libdoc/contracts/editor/contract17/events.js",
++            "/js/libdoc/contracts/editor/contract17/uploader.js",
++            '/js/jqueryui/jquery-ui-1.11.2.js',
++            "/js/jquery.damnUploader/js/jquery.damnUploader.js",
++
+         ),
+         "css" => array(
+             array("/css/libdoc/contracts/editor/structure.css", "all"),
+             array("/css/libdoc/contracts/editor/sheet.css", "all"),
+             array("/css/libdoc/contracts/editor/style.css", "screen"),
+             array("/css/libdoc/contracts/editor/print.css", "print"),
+-            array("/css/libdoc/contracts/editor/contract17.css", "screen"),
++            array("/css/libdoc/contracts/editor/contract17.css", "all"),
+             array("/css/libdoc/contracts/editor/contract17-print.css", "print"),
+             array("/css/libdoc/contracts/table.css", "all"),
+             array("/scripts/bootstrap/custom/css/bootstrap3-glyphicon.css", "screen"),
+diff --git a/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php b/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php
+index 98598a39f4..d7a12362c0 100644
+--- a/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php
++++ b/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php
+@@ -17,6 +17,8 @@ class App_Libdoc_Contracts_Editor_Fields_Contract17 extends App_Libdoc_Contracts
+     public $realtyfloor                          = '<span class="cv rq" data-field="realtyfloor" data-group="floor" contenteditable="true">{VALUE}</span>';
+     public $realtyAddress                        = '<span class="cv rq" data-field="realtyAddress" data-group="address" contenteditable="true">{VALUE}</span>';
+     public $technicalState                       = '<span class="cv rq" data-field="technicalState" data-group="state" contenteditable="true">{VALUE}</span>';
++    public $instrumentIndicators                 = '<span class="dv rq" data-field="instrumentIndicators"  contenteditable="true">{VALUE}</span>';
++    public $examples                             = '<span class="dv rq" data-field="examples"  contenteditable="true">{VALUE}</span>';
+     public $realtyUsingGoal                      = '<span class="cv rq" data-field="realtyUsingGoal" contenteditable="true">{VALUE}</span>';
+ 
+     public $paymentSum                           = '<span class="cv rq" data-field="paymentSum" contenteditable="true">{VALUE}</span>';
+@@ -59,6 +61,8 @@ class App_Libdoc_Contracts_Editor_Fields_Contract17 extends App_Libdoc_Contracts
+     public $defaultValues = array(
+         'actP2' => 'Нежилое помещение оборудовано системами коммунальной инфраструктуры: холодное и горячее водоснабжение, 
+                 водоотведение, электро- и теплоснабжение.',
+-        'technicalState' => 'Установлены приборы учета на потребление воды и электроэнергии.'
++        'technicalState' => 'Установлены приборы учета на потребление воды и электроэнергии.',
++        'instrumentIndicators' => '________________________________________________________________________________________________',
++        'examples' => 'Настоящий акт составлен в двух экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.'
+     );
+ }
+diff --git a/public/css/libdoc/contracts/editor/contract17.css b/public/css/libdoc/contracts/editor/contract17.css
+index 1096d4ecad..5ddf48d3f0 100644
+--- a/public/css/libdoc/contracts/editor/contract17.css
++++ b/public/css/libdoc/contracts/editor/contract17.css
+@@ -87,3 +87,234 @@ section.print {
+     top: -20px;
+ }
+ 
++.comments {
++    max-width: 100%;
++    word-break: break-all;
++    overflow-wrap: break-word;
++    /* Дополнительно: если фон или рамка — для наглядности */
++    background: #f9f9f9;
++    padding: 2px 4px;
++}
++
++.fmUploaderFileInput {
++    background-color: white;
++    border: 2px solid steelblue;
++    padding: 11px 5px;
++    text-align: center;
++    position: relative;
++}
++.h3-filelist-title-block {
++    font-size: 14pt;
++    line-height: 1;
++    color: #c3c3c3;
++    position: absolute;
++    z-index: 0;
++    top: 0;
++    width: 20%;
++}
++input.uploadField {
++    opacity: 0;
++    position: relative;
++    z-index: 1;
++    cursor: pointer;
++}
++.dropList td{
++    border: none;
++    background: #EEEEEE;
++    font-family: "Verdana", sans-serif;
++    font-size: 12px;
++}
++.documents td, .documents-history td {
++    border: none;
++    background: #DDDDDD;
++    font-family: "Verdana", sans-serif;
++    font-size: 12px;
++}
++.documents, .documents-history {
++    margin: 0;
++    padding: 0;
++    width: 300px;
++}
++
++.documents .fileName a {
++    text-overflow: ellipsis;
++    overflow: hidden;
++    display: inline-block;
++    max-width: 300px;
++}
++
++.documents-history {
++    width: auto;
++}
++.dropDelete{
++    margin-top: 3px;
++}
++.uploadPanel{
++    margin-top: 5px;
++}
++.h3-filelist-title-block {
++    font-size: 14pt;
++    line-height: 1;
++    color: #c3c3c3;
++    position: absolute;
++    z-index: 0;
++    top: 0;
++    width: 20%;
++}
++.fmUploaderFileInput {
++    background-color: white;
++    border: 2px solid steelblue;
++    padding: 11px 5px;
++    text-align: center;
++    position: relative;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++}
++
++.fmUploaderFileInput {
++    background-color: white;
++    border: 2px solid steelblue;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    position: relative;
++    overflow: hidden; /* чтобы изображение не вылезало */
++}
++
++.fmUploaderFileInput .uploadForm {
++    position: relative;
++    width: 100%;
++    height: 100%;
++}
++
++.upload-placeholder {
++    position: absolute;
++    top: 50%;
++    left: 50%;
++    transform: translate(-50%, -50%);
++    font-size: 14pt;
++    color: #c3c3c3;
++    z-index: 2;
++    pointer-events: none;
++    text-align: center;
++    width: 100%;
++}
++
++.preview-image {
++    position: absolute;
++    top: 0;
++    left: 0;
++    width: 100%;
++    height: 100%;
++    z-index: 1;
++    display: none;
++    object-fit: contain; /* аналог background-size: contain */
++}
++
++.uploadField {
++    position: absolute;
++    top: 0;
++    left: 0;
++    width: 100%;
++    height: 100%;
++    opacity: 0;
++    cursor: pointer;
++    z-index: 3;
++}
++.delete-placeholder {
++    position: absolute;
++    top: 15px;
++    right: 10px;
++    z-index: 2;
++}
++
++.uploadField {
++    opacity: 0;
++    position: absolute;
++    top: 0;
++    left: 0;
++    width: 100%;
++    height: 100%;
++    cursor: pointer;
++    z-index: 1;
++}
++.upload-grid {
++    display: grid;
++    grid-template-columns: 1fr 1fr;
++    gap: 15px;
++    width: 100%;
++    max-width: 500px;
++    margin: 10px auto;
++}
++
++.upload-slot {
++    width: 100%;
++    height: 150px;
++    border: 2px solid steelblue;
++    position: relative;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    overflow: hidden;
++    background-color: white;
++}
++
++.upload-slot .uploadForm {
++    position: relative;
++    width: 100%;
++    height: 100%;
++}
++
++.upload-slot input.uploadField {
++    position: absolute;
++    top: 0;
++    left: 0;
++    width: 100%;
++    height: 100%;
++    opacity: 0;
++    cursor: pointer;
++    z-index: 3;
++}
++
++.upload-slot .preview-image {
++    position: absolute;
++    top: 0;
++    left: 0;
++    width: 100%;
++    height: 100%;
++    object-fit: contain;
++    display: none;
++    z-index: 1;
++}
++
++.upload-slot .upload-placeholder,
++.upload-slot .delete-btn {
++    position: absolute;
++    z-index: 2;
++    pointer-events: none;
++}
++
++.upload-slot .upload-placeholder {
++    top: 50%;
++    left: 50%;
++    transform: translate(-50%, -50%);
++    color: #c3c3c3;
++    font-size: 12pt;
++    text-align: center;
++    width: 100%;
++}
++
++.upload-slot .delete-btn {
++    top: 8px;
++    right: 8px;
++    background: #ff4d4d;
++    color: white;
++    border: none;
++    border-radius: 3px;
++    padding: 2px 6px;
++    font-size: 10pt;
++    cursor: pointer;
++    pointer-events: auto; /* важно! */
++    display: none;
++}
+\ No newline at end of file
+diff --git a/public/js/libdoc/contracts/editor/contract/abstract2.js b/public/js/libdoc/contracts/editor/contract/abstract2.js
+index 4eeef1df40..5d6c0ddd59 100644
+--- a/public/js/libdoc/contracts/editor/contract/abstract2.js
++++ b/public/js/libdoc/contracts/editor/contract/abstract2.js
+@@ -149,6 +149,7 @@ var Libdoc_Contracts_Editor_Contract_Abstract2 = /** @class */(function ()
+      */
+     Libdoc_Contracts_Editor_Contract_Abstract2.prototype.init = function (data, specificationData, contractId)
+     {
++        console.log('super init'); // frolov debug
+         var _self = this;
+ 
+         this._initData();
+diff --git a/public/js/libdoc/contracts/editor/contract17/main.js b/public/js/libdoc/contracts/editor/contract17/main.js
+index c10a99f525..a9a8c27bf9 100644
+--- a/public/js/libdoc/contracts/editor/contract17/main.js
++++ b/public/js/libdoc/contracts/editor/contract17/main.js
+@@ -19,7 +19,12 @@ var contract = new (class extends Libdoc_Contracts_Editor_Contract_Abstract2
+             $(`span.p3_1_3_3_val`).addClass('hidden');
+             $(`span.p3_1_3_3_val[data-val='${this.value}']`).removeClass('hidden');
+         });
+-
++        $(`span.p3_1_3_4_val[data-val='${contractData.p3_1_3_4}']`).removeClass('hidden');
++        $(`select#p3_1_3_4_select`).on('change', function(e)
++        {
++            $(`span.p3_1_3_4_val`).addClass('hidden');
++            $(`span.p3_1_3_4_val[data-val='${this.value}']`).removeClass('hidden');
++        });
+ 
+         this.buildingType = new BuildingType();
+ 

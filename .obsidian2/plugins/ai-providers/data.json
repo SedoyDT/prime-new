@@ -1,0 +1,57 @@
+{
+  "_version": 1,
+  "debugLogging": false,
+  "debugChunkLogging": false,
+  "useNativeFetch": false,
+  "providers": [
+    {
+      "id": "id-1778341408218",
+      "name": "LM Studio",
+      "apiKey": "sk-lm-IZlc7OKu:XKwaVmQInz19KRGsjdXE",
+      "url": "http://localhost:1234/v1",
+      "type": "lmstudio",
+      "model": "huihui-qwen3.5-35b-a3b-abliterated-i1",
+      "availableModels": [
+        "huihui-qwen3.5-35b-a3b-abliterated-i1",
+        "qwen2.5-coder-14b-instruct-abliterated",
+        "qwen2.5-coder-7b-instruct-mlx",
+        "qwen2.5-7b-instruct-1m",
+        "qwen2.5-7b-instruct-uncensored",
+        "qwen/qwen3.6-27b",
+        "google/gemma-4-e4b",
+        "text-embedding-nomic-embed-text-v1.5"
+      ],
+      "modelCapabilities": {
+        "huihui-qwen3.5-35b-a3b-abliterated-i1": {
+          "embedding": false,
+          "text": true,
+          "tools": false,
+          "vision": false
+        }
+      }
+    },
+    {
+      "id": "id-1778837479682",
+      "name": "qwen/qwen3-30b-a3b-2507",
+      "apiKey": "",
+      "url": "http://localhost:1234/v1",
+      "type": "lmstudio",
+      "model": "qwen/qwen3-30b-a3b-2507",
+      "availableModels": [
+        "qwen/qwen3-30b-a3b-2507",
+        "qwen/qwen3-4b-2507",
+        "qwen3-14b-mlx",
+        "qwen2.5-coder-14b-instruct-abliterated",
+        "huihui-qwen3.5-35b-a3b-abliterated-i1",
+        "qwen2.5-coder-7b-instruct-mlx",
+        "qwen2.5-7b-instruct-1m",
+        "qwen2.5-7b-instruct-uncensored",
+        "qwen/qwen3.6-27b",
+        "google/gemma-4-e4b",
+        "text-embedding-nomic-embed-text-v1.5",
+        "qwen2.5-coder-7b-instruct",
+        "qwen2.5-14b-instruct"
+      ]
+    }
+  ]
+}

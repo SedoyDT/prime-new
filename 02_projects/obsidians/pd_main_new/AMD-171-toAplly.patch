@@ -1,0 +1,285 @@
+diff --git a/application/configs/amdco/synchronization.ini b/application/configs/amdco/synchronization.ini
+index 37a811b643..5b911a07f8 100644
+--- a/application/configs/amdco/synchronization.ini
++++ b/application/configs/amdco/synchronization.ini
+@@ -1,6 +1,6 @@
+ project.0 = inventory
+-project.1 = project11
++;project.1 = project11
+ project.2 = project18
+-project.3 = project24
+-project.4 = project28
+-project.5 = project30
++;project.3 = project24
++;project.4 = project28
++;project.5 = project30
+diff --git a/application/modules/inventory/models/Index/Filter.php b/application/modules/inventory/models/Index/Filter.php
+index fdad44d4f7..e2ba15b497 100644
+--- a/application/modules/inventory/models/Index/Filter.php
++++ b/application/modules/inventory/models/Index/Filter.php
+@@ -172,6 +172,8 @@ class Inventory_Model_Index_Filter extends AbstractFilter
+             SELECT *
+             FROM (
+                 SELECT
++                    ext_inventory_depot_list.title AS depot_title,
++                    ext_inventory_depot_list.id AS depot_id,
+                     0 AS is_free,
+                     ext_inventory_accounting.id,
+                     ext_inventory_depot_detailed.project_id,
+@@ -282,10 +284,14 @@ class Inventory_Model_Index_Filter extends AbstractFilter
+                 LEFT JOIN users u
+                 ON 
+                     ext_inventory_accounting.deactivation_user = u.id
++                LEFT JOIN ext_inventory_depot_list ON 
++                    ext_inventory_depot_list.id = ext_inventory_depot_detailed.depot_id 
+     
+                 UNION ALL
+                 
+                 SELECT 
++                    ext_inventory_depot_list.title AS depot_title,
++                    ext_inventory_depot_list.id AS depot_id,
+                     1 AS is_free,
+                     ext_inventory_depot_detailed.id AS id,
+                     ext_inventory_depot_detailed.project_id,
+@@ -374,6 +380,8 @@ class Inventory_Model_Index_Filter extends AbstractFilter
+                     ext_inventory_depot_detailed.project_id = did2f_description.project_id AND
+                     did2f_description.fieldId = 13 AND
+                     did2f_description.id = ext_inventory_depot_2.field13
++                LEFT JOIN ext_inventory_depot_list ON 
++                    ext_inventory_depot_list.id = ext_inventory_depot_detailed.depot_id 
+                 WHERE ext_inventory_depot_detailed.free_amount > 0
+             ) AS data
+             {WHEREIN}
+diff --git a/application/modules/inventory/models/Index/FilterConfigurator.php b/application/modules/inventory/models/Index/FilterConfigurator.php
+index 57693550b2..9adf009fc1 100644
+--- a/application/modules/inventory/models/Index/FilterConfigurator.php
++++ b/application/modules/inventory/models/Index/FilterConfigurator.php
+@@ -31,6 +31,7 @@ abstract class Inventory_Model_Index_FilterConfigurator
+         $mask->create('select', 'project_create_user_id','project_create_user_id');
+ 
+         $mask->create('select', 'claim_in', 'claim_in');
++        $mask->create('select', 'depot_id', 'depot_id');
+         $mask->create('select', 'price', 'price');
+         $mask->create('select', 'project_item_id', 'project_item_id');
+         $mask->create('select', 'placing_hash', 'placing_hash');
+@@ -175,6 +176,20 @@ abstract class Inventory_Model_Index_FilterConfigurator
+             'options' => array()
+         ));
+ 
++        $config->create(array(
++            'caption' => 'Склад',
++            'fieldName' => 'depot_id',
++            'filterUse' => 'select',
++            'options' => "
++                SELECT 
++                    id          AS v,
++                    title       AS t
++                FROM ext_inventory_depot_list
++                GROUP BY t
++                ORDER BY t ASC
++            "
++        ));
++
+         $config->create(array(
+             'fieldName' => "price",
+             'caption' => 'Цена',
+diff --git a/library/App/Claim/SaveStrategy/In.php b/library/App/Claim/SaveStrategy/In.php
+index 149f405691..91e4d2efe2 100644
+--- a/library/App/Claim/SaveStrategy/In.php
++++ b/library/App/Claim/SaveStrategy/In.php
+@@ -74,6 +74,9 @@ class App_Claim_SaveStrategy_In extends AbstractSaveHelper
+             // когда закрывается заявка, то создаётся отгрузка списание и запускается создание записей на УИН
+             if (App_Db_Claims::obtain()->getRowField('claim_status', ['id = ?' => $claimId]) == App_Claim_Status_In::CLOSE_STATUS) {
+                 $modelCollection = App_Container::$services->getCompanyEquipmentService()->findByClaimInId((int) $claimId);
++                $service=  App_Container::$services->getCompanyEquipmentService();
++                var_dump($service);
++                exit;
+                 if ($modelCollection->size() > 0) {
+                     App_Container::$services->getCompanyEquipmentWriteOffService()
+                         ->saveChangesResult($claimId, (new App_Product_CompanyEquipment_ChangeList_SaveResult())->setAdd($modelCollection));
+diff --git a/library/App/Constant/TableList.php b/library/App/Constant/TableList.php
+index 55ddf9baff..3e96f737b2 100644
+--- a/library/App/Constant/TableList.php
++++ b/library/App/Constant/TableList.php
+@@ -2670,6 +2670,11 @@ define('DB_EXT_INVENTORY_DEPOT_2_FIELDS', 'ext_inventory_depot_2_fields');
+  */
+ define('DB_EXT_INVENTORY_DEPOT_DETAILED', 'ext_inventory_depot_detailed');
+ 
++/**
++ * таблица связи складов проектов
++ */
++define('DB_EXT_INVENTORY_DEPOT_LIST', 'ext_inventory_depot_list');
++
+ /**
+  * Таблица с отделами проектов
+  */
+diff --git a/library/App/Network/Service/Synchronize/Sender.php b/library/App/Network/Service/Synchronize/Sender.php
+index 86b233e7aa..fdac3aa372 100644
+--- a/library/App/Network/Service/Synchronize/Sender.php
++++ b/library/App/Network/Service/Synchronize/Sender.php
+@@ -25,6 +25,9 @@ class App_Network_Service_Synchronize_Sender extends App_Network_Sender_Abstract
+      */
+     public function synchronize(array $data, array $files = array())
+     {
++//        var_dump('$data');
++//        var_dump($data);
++//        exit();
+         if (empty($data)) {
+             return true;
+         }
+diff --git a/library/App/Network/Service/Synchronize/Synchronizator.php b/library/App/Network/Service/Synchronize/Synchronizator.php
+index 69983987b9..b8cae9224b 100644
+--- a/library/App/Network/Service/Synchronize/Synchronizator.php
++++ b/library/App/Network/Service/Synchronize/Synchronizator.php
+@@ -60,6 +60,11 @@ class Synchronizator
+     {
+         // получаем массив изменённых данных, сгрупированных по типу в размере 10 id на сущность
+         // id не уникальны
++
++//        var_dump('$this->_typeList');
++//        var_dump($this->_typeLimit);
++//        exit;
++
+         if (count($this->_typeList) > 0) {
+             $data = \App_Db_SynchronizationChangedData::obtain()->getGroupedDataByType($this->_typeList, $this->_limit);
+         } else {
+@@ -67,9 +72,14 @@ class Synchronizator
+         }
+ 
+         $data = array_filter($data, function ($key) {
++//            var_dump($key);
++//            exit;
+             return !in_array($key, $this->_exceptionTypeList);
+         }, ARRAY_FILTER_USE_KEY);
+ 
++//        var_dump($data);
++//        exit;
++
+         if (empty($data)) {
+             return ;
+         }
+@@ -78,9 +88,14 @@ class Synchronizator
+         if (!is_null(\App_Config::get('synchronization'))) {
+             $synchronizationProject = \App_Config::get('synchronization')->project;
+         }
++//        var_dump($synchronizationProject);
++//        exit;
++
+ 
+         foreach ($synchronizationProject as $projectCode) {
+             $projectModel = \App_Project_Repository::getInstance()->getProjectByCode($projectCode);
++//            var_dump($projectModel);
++//            exit;
+             $logger->info('Working with project ' . $projectModel->getTitle());
+ 
+             // подготовка данных, сборка в единый массив
+@@ -90,21 +105,32 @@ class Synchronizator
+             $dataObjects = array();
+             $filesToSend = array();
+ 
++//            var_dump($data);
++//            exit;
+             foreach ($data as $table => $ids) {
+                 try {
+                     $object = \App_Network_Service_Synchronize_Data_Factory::create($projectCode, $table);
++//                    var_dump($object);
++//                    var_dump($ids);
+                 } catch (\App_Network_Service_Synchronize_Data_Exception_DataTypeNotFound $e) {
+                     continue;
+                 }
+ 
+                 $object->setPkValues(array_unique(array_values($ids)));
++//                var_dump('here');
++//                exit;
+                 $dataToSend[$table] = $object->prepareData();
++//                var_dump('$dataToSend[$table]');
++//                var_dump($dataToSend[$table]);
+                 $filesToSend[$table] = $object->prepareFiles();
++//                var_dump('$filesToSend[$table]');
++//                var_dump($filesToSend[$table]);
+                 $dataObjects[$table] = $object;
+                 if (empty($dataToSend[$table]) && empty($filesToSend[$table])) {
+                     unset($dataToSend[$table], $dataObjects[$table], $filesToSend[$table]);
+                 }
+             }
++//            exit();
+ 
+             if (count($dataToSend) === 0) {
+                 continue;
+@@ -114,8 +140,11 @@ class Synchronizator
+             $sender = new \App_Network_Service_Synchronize_Sender();
+             $sender->setProjectId($projectModel->getId());
+             // отправка данных
++//            var_dump($sender);
++//            exit;
+             $sendResult = $sender->synchronize($dataToSend, $filesToSend);
+ 
++
+             // обработка результата
+             $error = null;
+             if (!$sendResult) {
+@@ -138,13 +167,14 @@ class Synchronizator
+ 
+             unset($dataToSend, $dataObjects, $filesToSend);
+         }
+-
+-        $logger->info('Deleting');
+-        foreach ($data as $table => $ids) {
+-            if (!empty($ids)) {
+-                \App_Db_SynchronizationChangedData::obtain()->delete(['id IN (?)' => array_keys($ids)]);
+-            }
+-            $logger->info('Data for ' . $table . ' deleted: ' . print_r($ids, true));
+-        }
++//        exit();
++
++//        $logger->info('Deleting');
++//        foreach ($data as $table => $ids) {
++//            if (!empty($ids)) {
++//                \App_Db_SynchronizationChangedData::obtain()->delete(['id IN (?)' => array_keys($ids)]);
++//            }
++//            $logger->info('Data for ' . $table . ' deleted: ' . print_r($ids, true));
++//        }
+     }
+ }
+diff --git a/public/js/app/application/inventory/service/create-fields.service.js b/public/js/app/application/inventory/service/create-fields.service.js
+index de5cf66a4a..cf995d1dd7 100644
+--- a/public/js/app/application/inventory/service/create-fields.service.js
++++ b/public/js/app/application/inventory/service/create-fields.service.js
+@@ -244,7 +244,15 @@ define(["require", "exports"], function (require, exports) {
+             sort: true,
+             position: 400,
+             alias: (v, cnt, rowData) => rowData.in_repair_formatted
+-        }
++        },
++        depot_title: {
++            position: 2,
++            caption: 'Склад',
++            align: 'center',
++            width: 70,
++            sort: true,
++            alias: (v, cnt, rowData) => rowData.depot_title
++        },
+     };
+     class CreateFieldsService {
+         constructor(ConfigService, AjaxService) {
+diff --git a/typescript/app/application/inventory/service/create-fields.service.ts b/typescript/app/application/inventory/service/create-fields.service.ts
+index 6af00595db..6197c4d77f 100644
+--- a/typescript/app/application/inventory/service/create-fields.service.ts
++++ b/typescript/app/application/inventory/service/create-fields.service.ts
+@@ -247,7 +247,15 @@ export const DEFAULT_FIELDS: Assoc<TFilterFieldParamsOrdered<any>> = {
+         sort: true,
+         position: 400,
+         alias: (v, cnt, rowData) => rowData.in_repair_formatted
+-    }
++    },
++    depot_id: {
++        position: 2,
++        caption: 'Склад',
++        align: 'center',
++        width: 70,
++        sort: true,
++        alias: (v, cnt, rowData) => rowData.depot_title
++    },
+ };
+ 
+ /**

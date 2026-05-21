@@ -1,0 +1,13 @@
+{
+  "openBehavior": "daily",
+  "showUnsupportedFiles": true,
+  "newFileLocation": "current",
+  "attachmentFolderPath": "./",
+  "alwaysUpdateLinks": true,
+  "livePreview": false,
+  "defaultViewMode": "source",
+  "focusNewTab": true,
+  "strictLineBreaks": true,
+  "showLineNumber": true,
+  "rightToLeft": false
+}

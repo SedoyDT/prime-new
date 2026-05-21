@@ -1,0 +1,1040 @@
+diff --git a/application/modules/analitics/controllers/Balance/VerifyController.php b/application/modules/analitics/controllers/Balance/VerifyController.php
+index 318804439e..919821fa22 100644
+--- a/application/modules/analitics/controllers/Balance/VerifyController.php
++++ b/application/modules/analitics/controllers/Balance/VerifyController.php
+@@ -55,6 +55,9 @@ class Analitics_Balance_VerifyController extends AbstractDataSourceController
+                     'analitics' => [
+                         'balance' => [
+                             'imaginary' => App_Access::get('all', 'analitics>balance>imaginary'),
++                            'refer' => App_Access::get('all', 'analitics>balance>refer'),
++                            'chargeoff' => App_Access::get('all', 'analitics>balance>chargeoff'),
++                            'verify_excel' => App_Access::get('all', 'analitics>balance>verify_excel'),
+                         ],
+                     ],
+                 ],
+diff --git a/library/App/Analytics/Balance/Verify/Filter.php b/library/App/Analytics/Balance/Verify/Filter.php
+index 8c0967221d..eba2f0343f 100644
+--- a/library/App/Analytics/Balance/Verify/Filter.php
++++ b/library/App/Analytics/Balance/Verify/Filter.php
+@@ -15,6 +15,7 @@ use App\Development\TypeScript\Mask\MaskInterface;
+ use App\Development\TypeScript\Mask\NumberMask;
+ use App\Development\TypeScript\Mask\StringMask;
+ use App\Development\TypeScript\WorkPeriod\WorkPeriodModel2;
++use App_Access;
+ use App_Company_Repository;
+ use App_Helper_ClientBalanceDate;
+ use Cash_Model_Account;
+@@ -744,133 +745,145 @@ class Filter extends AbstractFilter
+         // Инициализация масок
+         $this->addExtraMasks();
+ 
+-        $this->addMask(
+-            (new NumberMask())
+-                ->setCaption('Юр. лицо (дебет)')
+-                ->setName('debetLegalEntity')
+-                ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
+-                ->setOptions($sqlGetLegalEntity)
+-        );
++        if (App_Access::get('access', 'analitics>balance>analytics_filters')) {
++            $this->addMask(
++                (new NumberMask())
++                    ->setCaption('Юр. лицо (дебет)')
++                    ->setName('debetLegalEntity')
++                    ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
++                    ->setOptions($sqlGetLegalEntity)
++            );
++        }
+ 
+-        $this->addMask(
+-            (new NumberMask())
+-                ->setCaption('Юр. лицо (Кредит)')
+-                ->setName('creditLegalEntity')
+-                ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
+-                ->setOptions($sqlGetLegalEntity)
+-        );
++        if (App_Access::get('access', 'analitics>balance>analytics_filters')) {
++            $this->addMask(
++                (new NumberMask())
++                    ->setCaption('Юр. лицо (Кредит)')
++                    ->setName('creditLegalEntity')
++                    ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
++                    ->setOptions($sqlGetLegalEntity)
++            );
++        }
+ 
+-        $this->addMask(
+-            (new NumberMask())
+-                ->setCaption('Расч. счет транзакций (б/н)(кредит)')
+-                ->setName('creditCashAccountNumber')
+-                ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
+-                ->setOptions("
+-                    SELECT
+-                        cash_account_numbers.account_number AS v,
+-                        cash_account_numbers.account_number AS t
+-                    FROM cash_account AS ca
+-                    LEFT JOIN cash_account_numbers ON
+-                        cash_account_numbers.id = ca.number_id
+-                    WHERE ca.number_id > 0 AND
+-                        ca.client_id IN ($clientIds) AND
+-                        ca.depot_id IN ($depotIds) AND
+-                        ca.`state` = '1' AND 
+-                        ca.`transaction_type` IN (1,2,3,4,8,11,26)
+-                    GROUP BY ca.number_id
+-                ")
+-        );
++        if (App_Access::get('access', 'analitics>balance>analytics_filters')) {
++            $this->addMask(
++                (new NumberMask())
++                    ->setCaption('Расч. счет транзакций (б/н)(кредит)')
++                    ->setName('creditCashAccountNumber')
++                    ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
++                    ->setOptions("
++                        SELECT
++                            cash_account_numbers.account_number AS v,
++                            cash_account_numbers.account_number AS t
++                        FROM cash_account AS ca
++                        LEFT JOIN cash_account_numbers ON
++                            cash_account_numbers.id = ca.number_id
++                        WHERE ca.number_id > 0 AND
++                            ca.client_id IN ($clientIds) AND
++                            ca.depot_id IN ($depotIds) AND
++                            ca.`state` = '1' AND 
++                            ca.`transaction_type` IN (1,2,3,4,8,11,26)
++                        GROUP BY ca.number_id
++                    ")
++            );
++        }
+ 
+-        $this->addMask(
+-            (new NumberMask())
+-                ->setCaption('Расч. счет транзакций (б/н)(дебет)')
+-                ->setName('debetCashAccountNumber')
+-                ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
+-                ->setOptions("
+-                    SELECT
+-                        cash_account_numbers.account_number AS v,
+-                        cash_account_numbers.account_number AS t
+-                    FROM cash_account AS ca
+-                    LEFT JOIN cash_account_numbers ON
+-                        cash_account_numbers.id = ca.number_id
+-                    WHERE ca.number_id > 0 AND
+-                        ca.client_id IN ($clientIds) AND
+-                        ca.depot_id IN ($depotIds) AND
+-                        ca.`state` = '1' AND 
+-                        ca.`transaction_type` IN (1,2,3,4,8,11,26)
+-                    GROUP BY ca.number_id
+-                ")
+-        );
++        if (App_Access::get('access', 'analitics>balance>analytics_filters')) {
++            $this->addMask(
++                (new NumberMask())
++                    ->setCaption('Расч. счет транзакций (б/н)(дебет)')
++                    ->setName('debetCashAccountNumber')
++                    ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
++                    ->setOptions("
++                        SELECT
++                            cash_account_numbers.account_number AS v,
++                            cash_account_numbers.account_number AS t
++                        FROM cash_account AS ca
++                        LEFT JOIN cash_account_numbers ON
++                            cash_account_numbers.id = ca.number_id
++                        WHERE ca.number_id > 0 AND
++                            ca.client_id IN ($clientIds) AND
++                            ca.depot_id IN ($depotIds) AND
++                            ca.`state` = '1' AND 
++                            ca.`transaction_type` IN (1,2,3,4,8,11,26)
++                        GROUP BY ca.number_id
++                    ")
++            );
++        }
+ 
+-        $this->addMask(
+-            (new StringMask())
+-                ->setCaption('Основание транзакций(дебет)')
+-                ->setName('debetTransactionReasonId')
+-                ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
+-                ->setOptions("
+-                    select
+-                        r.id as v,
+-                        r.reason as t,
+-                        r.client_id,
+-                        r.depot_id
+-                    from (
+-                        SELECT cr.id,
+-                            cr.reason,
+-                            ca.client_id,
+-                            ca.depot_id
+-                        FROM cash_reason AS cr
+-                        JOIN cash_account AS ca ON
+-                            cr.id = ca.reason
+-                        WHERE ca.client_id in ($clientIds) AND ca.depot_id IN ($depotIds)
+-
+-                    UNION
+-
+-                        SELECT cr.id,
+-                            cr.reason,
+-                            cm.client_id,
+-                            cm.depot_id
+-                        FROM cash_reason AS cr
+-                        JOIN cash_money AS cm ON
+-                            cr.id = cm.reason
+-                        WHERE cm.client_id in ($clientIds) AND cm.depot_id IN ($depotIds)
+-                    ) as r
+-                ")
+-        );
++        if (App_Access::get('access', 'analitics>balance>analytics_filters')) {
++            $this->addMask(
++                (new StringMask())
++                    ->setCaption('Основание транзакций(дебет)')
++                    ->setName('debetTransactionReasonId')
++                    ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
++                    ->setOptions("
++                        select
++                            r.id as v,
++                            r.reason as t,
++                            r.client_id,
++                            r.depot_id
++                        from (
++                            SELECT cr.id,
++                                cr.reason,
++                                ca.client_id,
++                                ca.depot_id
++                            FROM cash_reason AS cr
++                            JOIN cash_account AS ca ON
++                                cr.id = ca.reason
++                            WHERE ca.client_id in ($clientIds) AND ca.depot_id IN ($depotIds)
++    
++                        UNION
++    
++                            SELECT cr.id,
++                                cr.reason,
++                                cm.client_id,
++                                cm.depot_id
++                            FROM cash_reason AS cr
++                            JOIN cash_money AS cm ON
++                                cr.id = cm.reason
++                            WHERE cm.client_id in ($clientIds) AND cm.depot_id IN ($depotIds)
++                        ) as r
++                    ")
++            );
++        }
+ 
+-        $this->addMask(
+-            (new StringMask())
+-                ->setCaption('Основание транзакций(кредит)')
+-                ->setName('creditTransactionReasonId')
+-                ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
+-                ->setOptions("
+-                    select
+-                        r.id as v,
+-                        r.reason as t,
+-                        r.client_id,
+-                        r.depot_id
+-                    from (
+-                        SELECT cr.id,
+-                            cr.reason,
+-                            ca.client_id,
+-                            ca.depot_id
+-                        FROM cash_reason AS cr
+-                        JOIN cash_account AS ca ON
+-                            cr.id = ca.reason
+-                        WHERE ca.client_id in ($clientIds) AND ca.depot_id IN ($depotIds)
+-
+-                    UNION
+-
+-                        SELECT cr.id,
+-                            cr.reason,
+-                            cm.client_id,
+-                            cm.depot_id
+-                        FROM cash_reason AS cr
+-                        JOIN cash_money AS cm ON
+-                            cr.id = cm.reason
+-                        WHERE cm.client_id in ($clientIds) AND cm.depot_id IN ($depotIds)
+-                    ) as r
+-                ")
+-        );
++        if (App_Access::get('access', 'analitics>balance>analytics_filters')) {
++            $this->addMask(
++                (new StringMask())
++                    ->setCaption('Основание транзакций(кредит)')
++                    ->setName('creditTransactionReasonId')
++                    ->setFilterUse(MaskInterface::FILTER_USE_SELECT)
++                    ->setOptions("
++                        select
++                            r.id as v,
++                            r.reason as t,
++                            r.client_id,
++                            r.depot_id
++                        from (
++                            SELECT cr.id,
++                                cr.reason,
++                                ca.client_id,
++                                ca.depot_id
++                            FROM cash_reason AS cr
++                            JOIN cash_account AS ca ON
++                                cr.id = ca.reason
++                            WHERE ca.client_id in ($clientIds) AND ca.depot_id IN ($depotIds)
++    
++                        UNION
++    
++                            SELECT cr.id,
++                                cr.reason,
++                                cm.client_id,
++                                cm.depot_id
++                            FROM cash_reason AS cr
++                            JOIN cash_money AS cm ON
++                                cr.id = cm.reason
++                            WHERE cm.client_id in ($clientIds) AND cm.depot_id IN ($depotIds)
++                        ) as r
++                    ")
++            );
++        }
+ 
+         $this->addMask(
+             (new NumberMask())
+@@ -1080,7 +1093,7 @@ class Filter extends AbstractFilter
+                     LEFT JOIN `cash_money` AS `cm` ON 
+                         `ci`.`trans_id` = `cm`.`id` AND `ci`.`cash_type` = 1
+                     WHERE (`ca`.`client_id` IN ({$clientIds}) OR `cm`.`client_id` IN ({$clientIds})) AND 
+-                          (`ca`.`type` = 1 OR `cm`.`type` = 1) AND
++                          (`ca`.`type` = 2 OR `cm`.`type` = 2) AND
+                           (`ca`.`depot_id` IN ({$depotIds}))
+                     
+                     UNION ALL
+diff --git a/public/css/scss/app/application/analytics/client-balance/verify.css b/public/css/scss/app/application/analytics/client-balance/verify.css
+index 18ba5d7e0e..372bc42e4e 100644
+--- a/public/css/scss/app/application/analytics/client-balance/verify.css
++++ b/public/css/scss/app/application/analytics/client-balance/verify.css
+@@ -41,7 +41,7 @@ page div.darksalamon {
+ }
+ page div.yellow {
+   background-color: #ffec68 !important;
+-  color: white;
++  color: black;
+ }
+ page div.purple {
+   background-color: #7e437e !important;
+@@ -63,3 +63,39 @@ page .payment-type-component__container {
+   justify-content: center;
+   align-items: center;
+ }
++page .amd-filter-box__filters {
++  display: grid;
++  grid-template-columns: repeat(4, auto);
++  justify-content: space-between;
++  border-right: 0px;
++}
++page amd-filter:nth-child(2) {
++  margin-right: 30px;
++  border-top: 1px solid #9B9B9B;
++}
++page .sections-head {
++  display: flex;
++  justify-content: space-between;
++  width: 1014px;
++  margin-left: 20px;
++}
++page .sections-head__title {
++  width: 247px;
++  text-align: center;
++  font-weight: bold;
++}
++page .amd-filter-box__filters {
++  border: none;
++}
++page #filter-header-container {
++  display: flex;
++  gap: 21vw;
++}
++page .amd-filter-box__controls {
++  display: flex;
++  flex-direction: column-reverse;
++}
++page .sections-head__title {
++  background-color: #f1f1f1;
++  padding: 5px;
++}
+diff --git a/public/js/app/application/analytics/client-balance/pages/verify/component/page.component.js b/public/js/app/application/analytics/client-balance/pages/verify/component/page.component.js
+index ddf995d4d6..9161c9c92d 100644
+--- a/public/js/app/application/analytics/client-balance/pages/verify/component/page.component.js
++++ b/public/js/app/application/analytics/client-balance/pages/verify/component/page.component.js
+@@ -24,6 +24,7 @@ define(["require", "exports", "../../../../../../angular/decorator/component.dec
+             this.clients = this.config['clients'];
+         }
+         $onInit() {
++            this.listenForwardingToExtrnal();
+         }
+         update() {
+             this.config.grid.update();
+@@ -34,6 +35,15 @@ define(["require", "exports", "../../../../../../angular/decorator/component.dec
+         onGridUpdate(data) {
+             this.data = data;
+         }
++        listenForwardingToExtrnal() {
++            window.document.addEventListener("click", (event) => {
++                let dataset = event.target.dataset;
++                if (dataset.onlyExternal == 1 && dataset.transactionType !== 8) {
++                    event.preventDefault();
++                    alert("Данную транзакцию можно редактировать только в ВМК");
++                }
++            });
++        }
+     };
+     exports.PageComponent = PageComponent;
+     exports.PageComponent = PageComponent = __decorate([
+@@ -49,29 +59,37 @@ define(["require", "exports", "../../../../../../angular/decorator/component.dec
+                 <item-template>{{$parent.item}}</item-template>
+             </amd-expandable-list>
+         </div>
+-        <amd-grid 
++        <amd-grid
+             class="disable-sticky"
+             style="width: 1200px"
+             data-on-grid-update="$ctrl.onGridUpdate(data)"
+             data-default-sort="$ctrl.defaultSort"
+             data-bind-view-child="$ctrl.setViewChild(grid)"
+             data-data-source="$ctrl.gridDataSource"
+-            data-default-mask="{}"
+             data-fields-hider-model="$ctrl.fieldsHiderModel"
+             data-extra-data="$ctrl.filterExtraData"
+             data-paginator-type="${amd_grid_component_1.EPaginatorType.DISABLED}"
+         >
++            <filter-center-controls class="sections-head">
++                <div class="sections-head__title">Дебет</div>
++                <div class="sections-head__title">Кредит</div>
++            </filter-center-controls>
+             <grid-header class="amd-grid-controls">
+                 <div class="amd-grid-controls__row">
+-                    <amd-work-period
+-                        class="amd-grid-controls__cell amd-grid-controls__cell_left"
+-                        data-url="$ctrl.dataUrl"
+-                        ng-model="$ctrl.config.workPeriod"
+-                        ng-change="$ctrl.update()"
+-                    >
+-                    </amd-work-period>
+-                <label class="amd-straight-checkbox amd-grid-controls__cell amd-grid-controls__cell_right">
+-                    <span>Показывать только не списанные прочие расходы</span>
++                <amd-work-period
++                    class="amd-grid-controls__cell amd-grid-controls__cell_left"
++                    data-url="$ctrl.dataUrl"
++                    ng-model="$ctrl.config.workPeriod"
++                    ng-change="$ctrl.update()"
++                >
++                </amd-work-period>
++                <label
++                    ng-if="$ctrl.accessService.getAccess('analitics>balance>chargeoff').isAllowed()"
++                    class="amd-straight-checkbox amd-grid-controls__cell amd-grid-controls__cell_right"
++                >
++                    <span>
++                        Показывать только не списанные прочие расходы
++                    </span>
+                     <span>
+                         <input 
+                             id="otherChargeOff" 
+@@ -86,12 +104,11 @@ define(["require", "exports", "../../../../../../angular/decorator/component.dec
+             </grid-header>
+                 <div class="amd-grid-controls__row"> 
+                     <div style="display: flex; flex-direction: row; justify-content: space-between">
+-                        <div><span class="balance">Сальдо на начало периода:</span> {{$ctrl.data.balancePeriodBegin}}</div>
+-                        <div><span class="balance">Сальдо на конец периода:</span> {{$ctrl.data.balancePeriodEnd}}</div>
+-                        <div><span class="balance">Сальдо на конец периода вычисленное:</span> {{$ctrl.data.totalBalance}}</div>
++                        <div><span class="balance">Сальдо на начало периода:</span> {{$ctrl.data.balancePeriodBegin | number:2}}</div>
++                        <div><span class="balance">Сальдо на конец периода:</span> {{$ctrl.data.balancePeriodEnd | number:2}}</div>
++                        <div><span class="balance">Сальдо на конец периода вычисленное:</span> {{$ctrl.data.totalBalance | number:2}}</div>
+                     </div>
+                 </div>
+-            </grid-header>
+             <div style="display: flex; justify-content: center">
+                 ${(new datatable_template_generator_1.DatatableTemplateGenerator()).generate(filter_config_1.FILTER_CONFIG)}
+             </div>
+@@ -108,8 +125,8 @@ define(["require", "exports", "../../../../../../angular/decorator/component.dec
+             <grid-footer style="width: 1200px">
+                 <amd-button
+                     ng-if="$ctrl.data.rows.length > 0 && 
+-                        $ctrl.accessService.getAccess('balance>analytics_filters').isAllowed()"
+-                    ng-click="$ctrl.grid.downloadExcel($event)"
++                        $ctrl.accessService.getAccess('analitics>balance>verify_excel').isAllowed()"
++                    ng-click="$ctrl.config.grid.downloadExcel($event)"
+                 >Выгрузить в Excel</amd-button>
+             </grid-footer>
+         </amd-grid>
+diff --git a/public/js/app/application/analytics/client-balance/pages/verify/filter.config.js b/public/js/app/application/analytics/client-balance/pages/verify/filter.config.js
+index a8d1bf07ba..50491e4ab4 100644
+--- a/public/js/app/application/analytics/client-balance/pages/verify/filter.config.js
++++ b/public/js/app/application/analytics/client-balance/pages/verify/filter.config.js
+@@ -70,7 +70,7 @@ define(["require", "exports"], function (require, exports) {
+                 template: `
+                 <payment-type 
+                     data-row="row" 
+-                    data-is-debit="true"
++                    data-is-debit="1"
+                     data-page-component="$ctrl"
+                     
+                 >
+@@ -121,8 +121,7 @@ define(["require", "exports"], function (require, exports) {
+                 template: `
+                 <payment-type 
+                     data-row="row" 
+-                    data-is-debit="false"
+-                    data-page-component="$ctrl"
++                    data-is-debit="0"
+                 >
+                 
+                 </payment-type>
+diff --git a/scss/app/application/analytics/client-balance/verify.scss b/scss/app/application/analytics/client-balance/verify.scss
+index 228688f93a..5989acc886 100644
+--- a/scss/app/application/analytics/client-balance/verify.scss
++++ b/scss/app/application/analytics/client-balance/verify.scss
+@@ -4,59 +4,70 @@ page {
+   tr.lightred td {
+     background-color: $color-red-6 !important;
+   }
++
+   .amd-datatable__cell_foot {
+     font-size: 10px;
+   }
++
+   amd-expandable-list div {
+     display: flex;
+     flex-direction: row;
+     margin: 2px;
+     flex-wrap: wrap;
+   }
++
+   amd-expandable-list item-template {
+     background-color: rgba(128, 128, 128, 0.19);
+     padding: 5px;
+     white-space: nowrap;
+   }
+-  .balance  {
++
++  .balance {
+     color: #3E4E68;
+     font-weight: bold;
+   }
+ 
+-  div.red  {
++  div.red {
+     background-color: $color-red-8 !important;
+     color: white;
+   }
+-  div.green  {
+-    background-color: $color-green-2!important;
++
++  div.green {
++    background-color: $color-green-2 !important;
+     color: white;
+ 
+   }
+-  div.blue  {
++
++  div.blue {
+     background-color: $color-blue-2 !important;
+     color: white;
+ 
+   }
+-  div.salmon  {
++
++  div.salmon {
+     background-color: $color-orange-3 !important;
+     color: white;
+ 
+   }
++
+   div.darksalamon {
+     background-color: $color-orange-2 !important;
+     color: white;
+ 
+   }
+-  div.yellow  {
++
++  div.yellow {
+     background-color: $color-yellow-3 !important;
+-    color: white;
++    color: black;
+ 
+   }
+-  div.purple  {
++
++  div.purple {
+     background-color: $color-purple-1 !important;
+     color: white;
+ 
+   }
++
+   div.acidgreen {
+     background-color: $color-green-7 !important;
+     color: white;
+@@ -77,6 +88,56 @@ page {
+     }
+   }
+ 
++  .amd-filter-box__filters {
++    display: grid;
++    grid-template-columns: repeat(4, auto);
++    justify-content: space-between;
++    //border-top: 1px solid #9B9B9B;
++    //border-left: 1px solid #9B9B9B;
++    //column-gap: 5vw;
++    border-right: 0px;
+ 
++  }
++  amd-filter:nth-child(2) {
++    margin-right: 30px;
++    border-top: 1px solid #9B9B9B;
++
++  }
+ 
++  .sections-head {
++      display: flex;
++      justify-content: space-between;
++      width: 1014px;
++      margin-left: 20px;
++      &__title {
++        width: 247px;
++        text-align: center;
++        font-weight: bold;
++     }
++  }
++
++  .amd-filter-box__filters amd-filter {
++    //border-left: 1px solid #9B9B9B;
++    //border-top: 1px solid #9B9B9B;
++
++  }
++
++  .amd-filter-box__filters {
++    border: none;
++  }
++
++  #filter-header-container {
++    display: flex;
++    gap: 21vw;
++  }
++
++  .amd-filter-box__controls {
++    display: flex;
++    flex-direction: column-reverse;
++  }
++
++  .sections-head__title {
++    background-color: $color-grey-7;
++    padding: 5px;
++  }
+ }
+\ No newline at end of file
+diff --git a/typescript/app/application/analytics/client-balance/pages/verify/component/page.component.ts b/typescript/app/application/analytics/client-balance/pages/verify/component/page.component.ts
+index 3490b6a301..9acbc878b8 100644
+--- a/typescript/app/application/analytics/client-balance/pages/verify/component/page.component.ts
++++ b/typescript/app/application/analytics/client-balance/pages/verify/component/page.component.ts
+@@ -21,29 +21,37 @@ import {ImaginaryForm} from "../form/imaginary.form";
+                 <item-template>{{$parent.item}}</item-template>
+             </amd-expandable-list>
+         </div>
+-        <amd-grid 
++        <amd-grid
+             class="disable-sticky"
+             style="width: 1200px"
+             data-on-grid-update="$ctrl.onGridUpdate(data)"
+             data-default-sort="$ctrl.defaultSort"
+             data-bind-view-child="$ctrl.setViewChild(grid)"
+             data-data-source="$ctrl.gridDataSource"
+-            data-default-mask="{}"
+             data-fields-hider-model="$ctrl.fieldsHiderModel"
+             data-extra-data="$ctrl.filterExtraData"
+             data-paginator-type="${EPaginatorType.DISABLED}"
+         >
++            <filter-center-controls class="sections-head">
++                <div class="sections-head__title">Дебет</div>
++                <div class="sections-head__title">Кредит</div>
++            </filter-center-controls>
+             <grid-header class="amd-grid-controls">
+                 <div class="amd-grid-controls__row">
+-                    <amd-work-period
+-                        class="amd-grid-controls__cell amd-grid-controls__cell_left"
+-                        data-url="$ctrl.dataUrl"
+-                        ng-model="$ctrl.config.workPeriod"
+-                        ng-change="$ctrl.update()"
+-                    >
+-                    </amd-work-period>
+-                <label class="amd-straight-checkbox amd-grid-controls__cell amd-grid-controls__cell_right">
+-                    <span>Показывать только не списанные прочие расходы</span>
++                <amd-work-period
++                    class="amd-grid-controls__cell amd-grid-controls__cell_left"
++                    data-url="$ctrl.dataUrl"
++                    ng-model="$ctrl.config.workPeriod"
++                    ng-change="$ctrl.update()"
++                >
++                </amd-work-period>
++                <label
++                    ng-if="$ctrl.accessService.getAccess('analitics>balance>chargeoff').isAllowed()"
++                    class="amd-straight-checkbox amd-grid-controls__cell amd-grid-controls__cell_right"
++                >
++                    <span>
++                        Показывать только не списанные прочие расходы
++                    </span>
+                     <span>
+                         <input 
+                             id="otherChargeOff" 
+@@ -58,12 +66,11 @@ import {ImaginaryForm} from "../form/imaginary.form";
+             </grid-header>
+                 <div class="amd-grid-controls__row"> 
+                     <div style="display: flex; flex-direction: row; justify-content: space-between">
+-                        <div><span class="balance">Сальдо на начало периода:</span> {{$ctrl.data.balancePeriodBegin}}</div>
+-                        <div><span class="balance">Сальдо на конец периода:</span> {{$ctrl.data.balancePeriodEnd}}</div>
+-                        <div><span class="balance">Сальдо на конец периода вычисленное:</span> {{$ctrl.data.totalBalance}}</div>
++                        <div><span class="balance">Сальдо на начало периода:</span> {{$ctrl.data.balancePeriodBegin | number:2}}</div>
++                        <div><span class="balance">Сальдо на конец периода:</span> {{$ctrl.data.balancePeriodEnd | number:2}}</div>
++                        <div><span class="balance">Сальдо на конец периода вычисленное:</span> {{$ctrl.data.totalBalance | number:2}}</div>
+                     </div>
+                 </div>
+-            </grid-header>
+             <div style="display: flex; justify-content: center">
+                 ${(new DatatableTemplateGenerator()).generate(FILTER_CONFIG)}
+             </div>
+@@ -80,8 +87,8 @@ import {ImaginaryForm} from "../form/imaginary.form";
+             <grid-footer style="width: 1200px">
+                 <amd-button
+                     ng-if="$ctrl.data.rows.length > 0 && 
+-                        $ctrl.accessService.getAccess('balance>analytics_filters').isAllowed()"
+-                    ng-click="$ctrl.grid.downloadExcel($event)"
++                        $ctrl.accessService.getAccess('analitics>balance>verify_excel').isAllowed()"
++                    ng-click="$ctrl.config.grid.downloadExcel($event)"
+                 >Выгрузить в Excel</amd-button>
+             </grid-footer>
+         </amd-grid>
+@@ -113,10 +120,9 @@ export class PageComponent implements IComponentController
+ 
+     }
+ 
+-
+     public $onInit(): void
+     {
+-
++        this.listenForwardingToExtrnal();
+     }
+ 
+     update(): void
+@@ -131,4 +137,14 @@ export class PageComponent implements IComponentController
+     onGridUpdate(data) {
+         this.data = data;
+     }
++
++    public listenForwardingToExtrnal() {
++        window.document.addEventListener("click", (event) => {
++            let dataset  = event.target.dataset;
++            if (dataset.onlyExternal == 1 && dataset.transactionType !== 8) {
++                event.preventDefault();
++                alert("Данную транзакцию можно редактировать только в ВМК")
++            }
++        })
++    }
+ }
+diff --git a/typescript/app/application/analytics/client-balance/pages/verify/component/payment-type.component.ts b/typescript/app/application/analytics/client-balance/pages/verify/component/payment-type.component.ts
+index 3436cc8384..7e68db3dcb 100644
+--- a/typescript/app/application/analytics/client-balance/pages/verify/component/payment-type.component.ts
++++ b/typescript/app/application/analytics/client-balance/pages/verify/component/payment-type.component.ts
+@@ -1,54 +1,44 @@
+-import {IComponentController, IRootElementService} from "angular";
++import {IComponentController, IRootElementService, IRootScopeService} from "angular";
+ import {Component, Inject, Input} from "../../../../../../angular/decorator/component.decorator";
+ import {ImaginaryForm} from "../form/imaginary.form";
+ import {AmdAccessService} from "../../../../../../angular/service/amd-access.module";
++import {EScannerEvents} from "../../../../../production/modules/scanner/scanner.module";
+ 
+ @Component({
+     selector: 'payment-type',
+     template: `
+         <div class="payment-type-component__container"
+-             ng-if="$ctrl.cashType != -1"
++             ng-if="$ctrl.row[$ctrl.isDebit].cashType != -1"
+              ng-click="$ctrl.changeImaginary()"
+              ng-class="$ctrl.getCellClass()"
++             title="{{$ctrl.row[$ctrl.isDebit].imaginaryTitle}}"
+         >
+             <span 
+-                ng-if="$ctrl.imaginary == 0"
+-                ng-class="{'imaginary-edit': $ctrl.imaginary<=7}" 
+-                ng-title="$ctrl.imaginaryTitle"
++                ng-if="$ctrl.row[$ctrl.isDebit].imaginary == 0"
+             >
+-                {{$ctrl.cashType == 0 ? 'б/н' : 'нал'}}
++                {{$ctrl.row[$ctrl.isDebit].cashType == 0 ? 'б/н' : 'нал'}}
+             </span>
+            
+             <span
+-                ng-if="$ctrl.imaginary<=7 && $ctrl.imaginary != 0"
+-                ng-class="{'imaginary-edit': $ctrl.imaginary<=7}"
+-                ng-title="$ctrl.imaginaryTitle"
++                ng-if="$ctrl.row[$ctrl.isDebit].imaginary <= 7 && $ctrl.row[$ctrl.isDebit].imaginary != 0"
+             >
+-                {{$ctrl.cashType == 0 ? 'б/н' : 'нал'}}
++                {{$ctrl.row[$ctrl.isDebit].cashType == 0 ? 'б/н' : 'нал'}}
+             </span>
+             
+             <span 
+-                ng-if="$ctrl.imaginary>7" 
+-                ng-class="{'imaginary-edit': $ctrl.imaginary<=7}" 
+-                ng-title="Кликните, чтобы установить его"
++                ng-if="$ctrl.row[$ctrl.isDebit].imaginary > 7" 
+             >
+-                {{$ctrl.cashType == 0 ? 'б/н' : 'нал'}}
++                {{$ctrl.row[$ctrl.isDebit].cashType == 0 ? 'б/н' : 'нал'}}
+             </span>
+         </div>`,
+ })
+ export class PaymentTypeComponent implements IComponentController
+ {
+     @Input()
+-    private row: any; // ToDO решить что делать с any
++    private row: any;
+ 
+     @Input()
+-    private isDebit: boolean;
+-
+-    protected imaginary: number;
+-
+-    protected imaginaryTitle: string;
+-
+-    protected cashType: number;
++    private isDebit: number;
+ 
+     public constructor(
+         @Inject("$element") private $element: IRootElementService,
+@@ -60,10 +50,12 @@ export class PaymentTypeComponent implements IComponentController
+ 
+     public $onInit(): void
+     {
+-        this.$element.addClass("payment-type-component"); // TODo сделать кнопку большой
+-        this.imaginary      = this.isDebit ? this.row.debetImaginary      : this.row.creditImaginary;
+-        this.imaginaryTitle = this.isDebit ? this.row.debetImaginaryTitle : this.row.creditImaginaryTitle;
+-        this.cashType       = this.isDebit ? this.row.debetCashType       : this.row.creditCashType;
++        this.$element.addClass("payment-type-component");
++        this.row[this.isDebit ? 1 : 0] = {
++            imaginary:      this.isDebit ? this.row.debetImaginary      : this.row.creditImaginary,
++            imaginaryTitle: this.isDebit ? this.row.debetImaginaryTitle : this.row.creditImaginaryTitle,
++            cashType:       this.isDebit ? this.row.debetCashType       : this.row.creditCashType,
++        };
+     }
+ 
+ 
+@@ -76,11 +68,9 @@ export class PaymentTypeComponent implements IComponentController
+             return;
+         }
+ 
+-        this.imaginaryForm.show(this.row, this.config.grid);
+-
++        this.imaginaryForm.show(this.row, this.isDebit);
+     }
+ 
+-
+     private getCellClass()
+     {
+         let classList: string[] = [];
+@@ -88,7 +78,7 @@ export class PaymentTypeComponent implements IComponentController
+         const classMap: Record<number, string> = {
+             1: 'green',
+             2: 'red',
+-            3: 'lighyellow',
++            3: 'yellow',
+             4: 'blue',
+             5: 'salmon',
+             6: 'darksalamon',
+@@ -97,17 +87,15 @@ export class PaymentTypeComponent implements IComponentController
+         };
+ 
+         let crud = this.accessService.getCrud("analitics>balance>imaginary");
+-        if ((crud.isView() || crud.isEdit()) && classMap.hasOwnProperty(this.imaginary)) {
+-            classList.push(classMap[this.imaginary]);
++        if ((crud.isView() || crud.isEdit()) && classMap.hasOwnProperty(this.row[this.isDebit ? 1 : 0].imaginary)) {
++            classList.push(classMap[this.row[this.isDebit ? 1 : 0].imaginary]);
+         }
+ 
+-        // TODo права
+         if (this.row.imaginary != -1 && this.accessService.getCrud("analitics>balance>imaginary").isEdit()) {
+             classList.push('cursor_pointer');
+         }
+ 
+-
+         return classList.join(' ');
+-
+     }
++
+ }
+\ No newline at end of file
+diff --git a/typescript/app/application/analytics/client-balance/pages/verify/filter.config.ts b/typescript/app/application/analytics/client-balance/pages/verify/filter.config.ts
+index ec0ed23a22..bc982c90cd 100644
+--- a/typescript/app/application/analytics/client-balance/pages/verify/filter.config.ts
++++ b/typescript/app/application/analytics/client-balance/pages/verify/filter.config.ts
+@@ -71,7 +71,7 @@ export const FILTER_CONFIG: TDatatableTemplateConfig = {
+             template: `
+                 <payment-type 
+                     data-row="row" 
+-                    data-is-debit="true"
++                    data-is-debit="1"
+                     data-page-component="$ctrl"
+                     
+                 >
+@@ -124,8 +124,7 @@ export const FILTER_CONFIG: TDatatableTemplateConfig = {
+             template: `
+                 <payment-type 
+                     data-row="row" 
+-                    data-is-debit="false"
+-                    data-page-component="$ctrl"
++                    data-is-debit="0"
+                 >
+                 
+                 </payment-type>
+diff --git a/typescript/app/application/analytics/client-balance/pages/verify/form/imaginary.form.ts b/typescript/app/application/analytics/client-balance/pages/verify/form/imaginary.form.ts
+index a33f90067b..4459da65e3 100644
+--- a/typescript/app/application/analytics/client-balance/pages/verify/form/imaginary.form.ts
++++ b/typescript/app/application/analytics/client-balance/pages/verify/form/imaginary.form.ts
+@@ -1,27 +1,38 @@
+-import {Injectable} from "../../../../../../angular/decorator/component.decorator";
++import {Inject, Injectable} from "../../../../../../angular/decorator/component.decorator";
++import {IRootScopeService} from "angular";
+ 
+ @Injectable()
+ export class ImaginaryForm
+ {
+-        public imaginary: number;
++    public imaginary: number;
+ 
+-        public css: any;
++    public css: any;
+ 
+-        public cashType: any;
++    public cashType: any;
+ 
+-        public transactionId: number;
++    public transactionId: number;
+ 
+-        public form: AjaxForm;
++    public form: AjaxForm;
+ 
+-     public show(row, grid)
+-     {
+-       let cashType = row.debetCashType != '' ? row.debetCashType : row.creditCashType;
+-       let transactionId = row.id;
+-       let imaginary = row.imaginary;
+-       let css = this.getCss(imaginary);
+-       let getCss = (val) => {
++    constructor(
++        // @Inject("$q") private $q: IQService,
++        @Inject("$rootScope") private $rootScope: IRootScopeService,
++    )
++    {
++
++    }
++
++    public show(row, isDebit: number)
++    {
++        let cashType = row.debetCashType != '' ? row.debetCashType : row.creditCashType;
++        let transactionId = row.id;
++        let imaginary = row.imaginary;
++        let css = this.getCss(imaginary);
++        let getCss = (val) => {
+            return this.getCss(val);
+-       }
++        }
++
++        let self = this;
+ 
+         this.form = new AjaxForm($('script[data-template="imaginaryForm"]').html(), {
+              width: 600,
+@@ -61,9 +72,6 @@ export class ImaginaryForm
+                  // Событие на успешную отправку форму и ответ об успехе операции
+                  form.done(function (data, form) {
+                      if (data.success == true) {
+-                         // Todo или сменить реализацию(чтобы не нужно было обнавлять грид) или удалить
+-                         // Сменим значение мнима для строки
+-                         // form.grid.data[form.dataRowIndex].imaginary = data.imaginary;
+ 
+                          // Сменим изображение
+                          let src = '';
+@@ -73,19 +81,25 @@ export class ImaginaryForm
+                          } else {
+                              src = "/img/system/imaginary" + data.imaginary + ".png";
+                          }
+-                         // TODO разобраться с установкой titles
+-                         // $(form.node).attr("src", src);
+-                         // $(form.node).attr("title", data.imaginaryTitle);
++
++                         console.log(form.node) // frolov debug
++
++
++
++                         self.$rootScope.$apply(() => {
++                             row[isDebit].imaginary = data.imaginary;
++                             row[isDebit].imaginaryTitle = data.imaginaryTitle;
++                         });
+                      }
+ 
+                      form.hide();
+                  });
+              }
+-         });
++        });
+ 
+         this.form.show();
+-        this.form.complete(()=> grid.update())
+-     }
++        this.form.complete((form) => {})
++        }
+ 
+ 
+     public getCss(imaginary)
+@@ -98,19 +112,50 @@ export class ImaginaryForm
+         switch (imaginary) {
+             case '1':
+                 bgCss = {
+-                    'background-color': 'green',
++                    'background-color': '#155724',
+                     'color' : 'white'
+                 };
+                 break;
+             case '2':
+                 bgCss = {
+-                    'background-color': 'red',
++                    'background-color': '#FF0000',
+                     'color' : 'white'
+                 };
+                 break;
+             case '3':
+                 bgCss = {
+-                    'background-color': 'yellow',
++                    'background-color': '#ffec68',
++                    'color' : '#313131'
++                };
++                break;
++            case '4':
++                bgCss = {
++                    'background-color': 'blue',
++                    'color' : 'white'
++                };
++                break;
++            case '5':
++                bgCss = {
++                    'background-color': '#FFA07A',
++                    'color' : 'white'
++                };
++                break;
++            case '6':
++                bgCss = {
++                    'background-color': '#C47852',
++                    'color' : '#ffd457'
++                };
++                break;
++
++            case '7':
++                bgCss = {
++                    'background-color': '#7e437e',
++                    'color' : 'white'
++                };
++                break;
++            case '8':
++                bgCss = {
++                    'background-color': '#b0ff11',
+                     'color' : '#313131'
+                 };
+                 break;

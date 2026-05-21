@@ -1,0 +1,61 @@
+
+
+<tr class="even">
+    <td align="center" colspan="2">
+        <input type="hidden" name="changeStatusSaveData" value="" />
+        <span>
+            <label style="cursor: pointer;" for="saveData">Изменить с сохранением данных</label>&nbsp;
+            <input type="checkbox" name="saveData" id="saveData" />
+        </span>
+        <select name="newstatus" id="chStatusSelect" data-create-status="<?php echo $createConstName; ?>">
+            <?php echo $this->_option; ?>
+        </select>
+        <input type="button" class="amd-btn amd-btn_primary" id="doChangeStatus" value="Изменить статус">
+    </td>
+</tr>
+<script>
+
+    $(function() {
+        $('#doChangeStatus').click(GoToChangeStatus);
+    });
+
+    function GoToChangeStatus() {
+        if ($('input#saveData').is(':checked')) {
+            if (confirm("Будет изменен статус заявки c сохранением изменений данных, продолжить?")) {
+                if (typeof(claimproduction) == "undefined") {
+                    if (claim.claimType == "receipt") {
+                        // Заявка приход от переработчика (new)
+                        $('input[name="changeStatusSaveData"]').val(1);
+                        claim.info(false);
+                    } else {
+                        console.log(5);
+                        if ($(document.getElementById(claim.formId)['changeStatusAvaleble']).length) {
+                            document.getElementById(claim.formId)['changeStatusAvaleble'].value = 0;
+                        } else if ($(document.getElementById(claim.formId)['changeStatusAvalible']).length) {
+                            document.getElementById(claim.formId)['changeStatusAvalible'].value = 0;
+                        }
+                        document.getElementById(claim.formId)['changeStatusSaveData'].value = 1;
+                        document.getElementById(claim.formId).submit();
+                    }
+                } else {
+                    // Заявка на производство
+                    claimproduction.form.find('input[name="changeStatusSaveData"]').val(1);
+                    var input = $('#chStatusSelect').next();
+                    input.data('action-claim-send', 0);
+                    claimproduction.submitForm(input);
+                }
+            }
+        } else {
+            if (confirm("Будет изменен статус заявки без сохранения изменений данных, продолжить?")) {
+                if (typeof(claimproduction) != "undefined" && claimproduction.otherPermissions.claim.changeGroupStatus) {
+                    claimproduction.showGroupChangeStatusForm(function () {
+                        var claimList = $('input[name="changeGroupStatus"]').val();
+                        window.location = '<?php echo $url; ?>/claimlist/' + claimList;
+                    });
+                } else {
+                    window.location = '<?php echo $url; ?>';
+                }
+            }
+        }
+    }
+</script>

@@ -1,0 +1,449 @@
+diff --git a/public/js/app/application/analytics/managers-block/list/component/page.component.js b/public/js/app/application/analytics/managers-block/list/component/page.component.js
+index 9634f126cb..7890269f9c 100644
+--- a/public/js/app/application/analytics/managers-block/list/component/page.component.js
++++ b/public/js/app/application/analytics/managers-block/list/component/page.component.js
+@@ -7,13 +7,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
+ var __param = (this && this.__param) || function (paramIndex, decorator) {
+     return function (target, key) { decorator(target, key, paramIndex); }
+ };
+-define(["require", "exports", "../../../../../angular/decorator/component.decorator", "../../../../../angular/component/amd-grid/data-source/http.data-source", "../../../../../angular/service/amd-access.module", "../../../../../angular/component/amd-grid/generator/datatable-template.generator", "../filter.config", "../../../../../angular/component/amd-grid/generator/fields-hider.factory"], function (require, exports, component_decorator_1, http_data_source_1, amd_access_module_1, datatable_template_generator_1, filter_config_1, fields_hider_factory_1) {
++define(["require", "exports", "../../../../../angular/decorator/component.decorator", "../../../../../angular/component/amd-grid/data-source/http.data-source", "../../../../../angular/service/amd-access.module", "../../../../../angular/component/amd-grid/generator/datatable-template.generator", "../filter.config", "../../../../../angular/component/amd-grid/generator/fields-hider.factory", "../../../../../angular/component/amd-dialog/service/amd-window.service"], function (require, exports, component_decorator_1, http_data_source_1, amd_access_module_1, datatable_template_generator_1, filter_config_1, fields_hider_factory_1, amd_window_service_1) {
+     "use strict";
+     Object.defineProperty(exports, "__esModule", { value: true });
+     exports.PageComponent = void 0;
+     let PageComponent = class PageComponent {
+-        constructor(accessService) {
++        constructor(accessService, amdWindowService) {
+             this.accessService = accessService;
++            this.amdWindowService = amdWindowService;
+             this.fieldsHiderModel = (new fields_hider_factory_1.FieldsHiderFactory).factory(filter_config_1.FILTER_CONFIG, 'analytics.manages-blocks.list');
+             this.gridDataSource = new http_data_source_1.default({
+                 result: "/analitics/managersblocks/list/get-filter-result",
+@@ -36,6 +37,16 @@ define(["require", "exports", "../../../../../angular/decorator/component.decora
+         setViewChild(component) {
+             this.grid = component;
+         }
++        setAnnotation(row) {
++            console.log(row);
++            this.amdWindowService
++                .get({
++                destroyOnHide: true,
++                width: 200,
++                template: `<set-annotation></set-annotation>`,
++            })
++                .show();
++        }
+     };
+     exports.PageComponent = PageComponent;
+     exports.PageComponent = PageComponent = __decorate([
+@@ -55,6 +66,7 @@ define(["require", "exports", "../../../../../angular/decorator/component.decora
+         </amd-grid>
+     `,
+         }),
+-        __param(0, (0, component_decorator_1.Inject)(amd_access_module_1.AmdAccessService))
++        __param(0, (0, component_decorator_1.Inject)(amd_access_module_1.AmdAccessService)),
++        __param(1, (0, component_decorator_1.Inject)(amd_window_service_1.AmdWindowService))
+     ], PageComponent);
+ });
+diff --git a/public/js/app/application/analytics/managers-block/list/filter.config.js b/public/js/app/application/analytics/managers-block/list/filter.config.js
+index 94276b5f79..4b2d379739 100644
+--- a/public/js/app/application/analytics/managers-block/list/filter.config.js
++++ b/public/js/app/application/analytics/managers-block/list/filter.config.js
+@@ -118,18 +118,19 @@ define(["require", "exports", "../../../depot/components/grid/depot-fields.colle
+             caption: "Примечание",
+             width: "100px",
+             template: `
+-        <div>
+-            <amd-button title="редактировать" 
+-                data-color="{{$ctrl.buttonColor}}" 
+-                ng-disabled="$ctrl.buttonDisabled" 
+-                ng-click="$ctrl.click($event)"
+-            >
+-                <amd-icon>edit</amd-icon>
+-            </amd-button>
+-        </div>
+-        <div>
+-            {{row.annotation_value}}
+-        </div>
++                <div>
++                    <amd-button title="Редактировать примечание" 
++                        data-color="{{$ctrl.buttonColor}}" 
++                        ng-disabled="$ctrl.buttonDisabled" 
++                        ng-click="$ctrl.setAnnotation(row)"
++                    >
++                        <amd-icon>edit</amd-icon>
++                    </amd-button>
++                </div>
++                <div>
++                    <amd-icon ng-if="!row.annotation_value">info</amd-icon>
++<!--                    {{row.annotation_value || 'Нет примечания'}}-->
++                </div>
+         `,
+         }
+     ];
+diff --git a/public/js/app/application/analytics/managers-block/list/page.module.js b/public/js/app/application/analytics/managers-block/list/page.module.js
+index befa362bdd..6f803ebd45 100644
+--- a/public/js/app/application/analytics/managers-block/list/page.module.js
++++ b/public/js/app/application/analytics/managers-block/list/page.module.js
+@@ -4,7 +4,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
+     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+     return c > 3 && r && Object.defineProperty(target, key, r), r;
+ };
+-define(["require", "exports", "./component/page.component", "../../../../angular/decorator/module.decorator", "module", "../../../../angular/service/amd-access.module", "../../../../angular/component/amd-fields/amd-fields.module", "../../../../angular/component/amd-sub-filter/amd-sub-filter.module", "../../../../angular/directive/amd-button/amd-button.module", "../../../../angular/component/amd-grid/amd-grid2.module", "../../../../angular/component/amd-icon/amd-icon.module", "../../../../angular/filter/depot/depot-filters.module", "../../../../angular/component/amd-grid/fields-hider/amd-fields-hider.module", "../../../../angular/component/amd-grid/elements/product-measure-type-hint.component", "ngLocaleRu"], function (require, exports, page_component_1, module_decorator_1, mod, amd_access_module_1, amd_fields_module_1, amd_sub_filter_module_1, amd_button_module_1, amd_grid2_module_1, amd_icon_module_1, depot_filters_module_1, amd_fields_hider_module_1, product_measure_type_hint_component_1) {
++define(["require", "exports", "./component/page.component", "../../../../angular/decorator/module.decorator", "module", "../../../../angular/service/amd-access.module", "../../../../angular/component/amd-fields/amd-fields.module", "../../../../angular/component/amd-sub-filter/amd-sub-filter.module", "../../../../angular/directive/amd-button/amd-button.module", "../../../../angular/component/amd-grid/amd-grid2.module", "../../../../angular/component/amd-icon/amd-icon.module", "../../../../angular/filter/depot/depot-filters.module", "../../../../angular/component/amd-grid/fields-hider/amd-fields-hider.module", "../../../../angular/component/amd-grid/elements/product-measure-type-hint.component", "../../../../angular/component/amd-dialog/amd-dialog.module", "./component/set-annotation.component", "../../../claim/components/fields/annotation/amd-claim-annotation.module", "../../../claim/components/fields/unload-manager/amd-claim-unload-address.module", "../../../claim/components/fields/dimensions/amd-claim-dimensions.module", "../../../claim/components/fields/dispatcher/amd-claim-dispatcher.module", "../../../claim/components/fields/delivery/component/delivery.component", "../../../claim/components/fields/delivery/component/car-type.component", "../../../claim/components/fields/delivery/component/rent-price.component", "../../../claim/components/fields/delivery/component/car-data.component", "../../../claim/components/fields/delivery/component/type.component", "../../../claim/components/fields/delivery/component/car-proxy.component", "ngLocaleRu"], function (require, exports, page_component_1, module_decorator_1, mod, amd_access_module_1, amd_fields_module_1, amd_sub_filter_module_1, amd_button_module_1, amd_grid2_module_1, amd_icon_module_1, depot_filters_module_1, amd_fields_hider_module_1, product_measure_type_hint_component_1, amd_dialog_module_1, set_annotation_component_1, amd_claim_annotation_module_1, amd_claim_unload_address_module_1, amd_claim_dimensions_module_1, amd_claim_dispatcher_module_1, delivery_component_1, car_type_component_1, rent_price_component_1, car_data_component_1, type_component_1, car_proxy_component_1) {
+     "use strict";
+     Object.defineProperty(exports, "__esModule", { value: true });
+     exports.PageModule = void 0;
+@@ -16,6 +16,13 @@ define(["require", "exports", "./component/page.component", "../../../../angular
+             declarations: [
+                 page_component_1.PageComponent,
+                 product_measure_type_hint_component_1.ProductMeasureTypeHintComponent,
++                set_annotation_component_1.SetAnnotationFormComponent,
++                delivery_component_1.DeliveryComponent,
++                car_type_component_1.CarTypeComponent,
++                rent_price_component_1.RentPriceComponent,
++                car_data_component_1.CarDataComponent,
++                type_component_1.TypeComponent,
++                car_proxy_component_1.CarProxyComponent,
+             ],
+             providers: [
+                 { provide: 'ConfigService', useValue: mod.config() },
+@@ -30,6 +37,13 @@ define(["require", "exports", "./component/page.component", "../../../../angular
+                 amd_button_module_1.AmdButtonModule,
+                 amd_icon_module_1.AmdIconModule,
+                 amd_fields_hider_module_1.AmdFieldsHiderModule,
++                amd_dialog_module_1.AmdDialogModule,
++                amd_claim_annotation_module_1.AmdClaimAnnotationModule,
++                amd_claim_unload_address_module_1.AmdClaimUnloadAddressModule,
++                amd_claim_dimensions_module_1.AmdClaimDimensionsModule,
++                amd_claim_dispatcher_module_1.AmdClaimDispatcherModule,
++                amd_claim_annotation_module_1.AmdClaimAnnotationModule,
++                amd_button_module_1.AmdButtonModule,
+             ],
+         })
+     ], PageModule);
+diff --git a/typescript/app/application/analytics/managers-block/list/component/page.component.ts b/typescript/app/application/analytics/managers-block/list/component/page.component.ts
+index d77c6e1535..b619e50e2f 100644
+--- a/typescript/app/application/analytics/managers-block/list/component/page.component.ts
++++ b/typescript/app/application/analytics/managers-block/list/component/page.component.ts
+@@ -11,6 +11,8 @@ import {
+     FieldsHiderDataModel
+ } from "../../../../../angular/component/amd-grid/fields-hider/model/fields-hider-data.model";
+ import {FieldsHiderFactory} from "../../../../../angular/component/amd-grid/generator/fields-hider.factory";
++import {TParams} from "../../../potential-clients/index/component/shipped-info.component";
++import {AmdWindowService} from "../../../../../angular/component/amd-dialog/service/amd-window.service";
+ 
+ @Component({
+     selector: 'page',
+@@ -39,6 +41,7 @@ export class PageComponent implements IComponentController
+ 
+     public constructor(
+         @Inject(AmdAccessService) private accessService: AmdAccessService,
++        @Inject(AmdWindowService) private amdWindowService: AmdWindowService
+     )
+     {
+         this.gridDataSource   = new HttpDataSource({
+@@ -67,4 +70,19 @@ export class PageComponent implements IComponentController
+     {
+         this.grid = component;
+     }
++
++    public setAnnotation(row)
++    {
++        console.log(row) // frolov debug
++
++        this.amdWindowService
++            .get<TParams, void>({
++                destroyOnHide: true,
++                width        : 200,
++                template     : `<set-annotation></set-annotation>`,
++            })
++            .show()
++            // .then( ()=> {} );
++    }
++
+ }
+diff --git a/typescript/app/application/analytics/managers-block/list/component/set-annotation.component.ts b/typescript/app/application/analytics/managers-block/list/component/set-annotation.component.ts
+index ebe4b9a3dd..ee6919930f 100644
+--- a/typescript/app/application/analytics/managers-block/list/component/set-annotation.component.ts
++++ b/typescript/app/application/analytics/managers-block/list/component/set-annotation.component.ts
+@@ -1,147 +1,75 @@
+-import {IComponentController, IPromise} from "angular";
++import {IComponentController, INgModelController ,IPromise} from "angular";
+ import {AmdWindowComponent} from "../../../../../angular/component/amd-dialog/component/amd-window.component";
+ import {Component, Inject, Require} from "../../../../../angular/decorator/component.decorator";
+-import {BackendService} from "../service/backend.service";
++import {BackendService} from "../../../potential-clients/index/service/backend.service";
+ import {AmdWindowService} from "../../../../../angular/component/amd-dialog/service/amd-window.service";
+ 
+-enum ORDER {
+-    CLIENT_NAME = 1,
+-    CLAIM_DATE = 2
+-}
+ const TEMPLATE = `
+ <amd-dialog data-wait-promise="$ctrl.loadingPromise">
+-    <dialog-header>    
+-        Товар: {{$ctrl.amdWindow.params.itemTitle}} (ID:{{$ctrl.amdWindow.params.id}})
++    <dialog-header>  
++        <h3>Добавить/Редактировать аннотацию</h3>  
+     </dialog-header>
+     <dialog-body>
+-        <div ng-if="!$ctrl.data" style="padding: 30px 0; text-align: center;">
+-            <h3>Данная позиция не отгружалась Вашим клиентам!</h3>
+-        </div>
+-        <div ng-if="$ctrl.data">
+-            <div class="text-align_center">
+-                Сортировать по:
+-                <label>
+-                    названию клиента
+-                    <input type="radio" name="sort" 
+-                        ng-model="$ctrl.order" 
+-                        ng-value="${ORDER.CLIENT_NAME}"
+-                        ng-change="$ctrl.changeOrder()"/>
+-                </label>    
+-                <label>
+-                    по дате заявки
+-                    <input type="radio" name="sort" 
+-                        ng-model="$ctrl.order"
+-                        ng-value="${ORDER.CLAIM_DATE}"
+-                        ng-change="$ctrl.changeOrder()"/>
+-                </label>
+-            </div>
+-            <table class="amd-table" cellspacing="0" cellpadding="0" class="item-claims">
+-                <thead>
+-                    <tr>
+-                        <th style="width: 250px;">Клиент</th>
+-                        <th style="width: 96px;">Дата</th>
+-                        <th style="width: 142px;">Заявка</th>
+-                        <th style="width: 238px;">Менеджер</th>
+-                        <th style="width: 150px;">Кол-во/общий вес</th>
+-                        <th style="width: 100px;">Кол-во заявок</th>
+-                    </tr>
+-                </thead>
+-                <tbody ng-repeat="itemObject in $ctrl.data.clientsClaims">
+-                    <tr ng-if="!itemObject.client.showClaims" class="item-claims__claim">
+-                        <td ng-click="$ctrl.showClaims(itemObject)"
+-                            class="item-claims__client"
+-                        >
+-                            {{itemObject.client.name}}
+-                        </td>
+-                        <td colspan="4">&nbsp;</td>
+-                        <td style="text-align: center">
+-                            <b>{{itemObject.claims.length}}</b>
+-                        </td>
+-                    </tr>
+-                    <tr 
+-                        ng-repeat="claim in itemObject.claims"
+-                        ng-if="itemObject.client.showClaims"
+-                    >
+-                        <td 
+-                            class="item-claims__client"
+-                            rowspan="{{itemObject.claims.length}}" 
+-                            ng-if="$first"
+-                            ng-click="$ctrl.showClaims(itemObject)" 
+-                        >
+-                            {{itemObject.client.name}}
+-                        </td>
+-                        <td
+-                            ng-if="itemObject.client.showClaims">
+-                            {{claim.date}}
+-                        </td>
+-                        <td>
+-                            <a target="_blank" rel="opener" ng-href="{{claim.url}}">
+-                                {{claim.full_id}}
+-                            </a>    
+-                        </td>
+-                        <td>{{claim.name}}</td>
+-                        <td>{{claim.amount}}</td>
+-                        <td
+-                            style="text-align: center"
+-                            rowspan="{{itemObject.claims.length}}"
+-                            ng-if="$first"
+-                        >
+-                            <b>{{itemObject.claims.length}}</b>
+-                        </td>
+-                    </tr>
+-                </tbody>
+-            </table>
++        <div>
++            <label for="annotation">Аннотация:</label>
++            <textarea id="annotation" ng-model="$ctrl.annotationValue" rows="5" style="width: 100%;"></textarea>
+         </div>
+     </dialog-body>
+     <dialog-footer>
++        <amd-button ng-click="$ctrl.saveAnnotation()">Сохранить</amd-button>
+         <amd-button ng-click="$ctrl.amdWindow.hide()">Закрыть</amd-button>
+     </dialog-footer>
+ </amd-dialog>
+ `;
++
+ @Component({
+-    selector: 'shipped-info',
++    selector: 'set-annotation',
+     template: TEMPLATE,
+ })
+-export class ShippedInfoFormComponent implements IComponentController {
++export class SetAnnotationFormComponent implements IComponentController {
+ 
+     @Require('^amdWindow')
+     private amdWindow: AmdWindowComponent<TParams, void>;
+ 
+-    public data: { productId: number; order: number };
++    private loadingPromise: IPromise<any>;
+ 
+-    public order: ORDER = ORDER.CLIENT_NAME;
++    public annotationValue: string = ''; // Модель для ввода аннотации
+ 
+-    private loadingPromise: IPromise<any>;
+-    
+     public constructor(
+-        @Inject(BackendService) public shippedService: BackendService,
++        // @Inject(BackendService) public shippedService: BackendService,
+         @Inject(AmdWindowService) private amdWindowService: AmdWindowService,
+     ) {
+     }
+ 
+-    public showClaims(itemObject)
+-    {
+-        itemObject.client.showClaims = !itemObject.client.showClaims;
++    public $onInit() {
++        // Можно инициализировать значение аннотации, если это редактирование
++        this.amdWindow.onChangeParams(() => {
++            // const params = this.amdWindow.getParams();
++            // if (params && params.id) {
++            //     Получаем аннотацию по id и устанавливаем в модель
++                // this.loadAnnotation(params.id);
++            // }
++        });
+     }
+ 
+-    public changeOrder()
+-    {
+-        this.loadingPromise = this.shippedService.getShippedInfo(this.amdWindow.params.id,this.order)
+-            .then((data) => this.data = data)
++    private loadAnnotation(id: number): void {
++        // Пример запроса к backend для получения текущей аннотации
++        // this.loadingPromise = this.shippedService.getAnnotation(id).then((response) => {
++        //     this.annotationValue = response.data.annotation;
++        // });
+     }
+ 
+-    public $onInit()
+-    {
+-        this.amdWindow.onChangeParams(() => {
+-            this.loadingPromise = this.shippedService.getShippedInfo(this.amdWindow.params.id)
+-                .then((data) => this.data = data)
+-        })
++    public saveAnnotation(): void {
++        // const params = this.amdWindow.getParams();
++        // if (params && params.id) {
++        //     Сохраняем аннотацию через backend
++            // this.loadingPromise = this.shippedService.saveAnnotation(params.id, this.annotationValue).then(() => {
++            //     this.amdWindow.hide(); // Закрываем окно после сохранения
++            // });
++        // }
+     }
+ }
+ 
+ export type TParams = {
+     id: number,
+-    itemTitle: string,
+-    showClaims: boolean,
+ }
+-
+diff --git a/typescript/app/application/analytics/managers-block/list/filter.config.ts b/typescript/app/application/analytics/managers-block/list/filter.config.ts
+index 919a905b19..98b5faa72a 100644
+--- a/typescript/app/application/analytics/managers-block/list/filter.config.ts
++++ b/typescript/app/application/analytics/managers-block/list/filter.config.ts
+@@ -120,18 +120,19 @@ const collection = [
+         caption : "Примечание",
+         width  : "100px",
+         template: `
+-        <div>
+-            <amd-button title="редактировать" 
+-                data-color="{{$ctrl.buttonColor}}" 
+-                ng-disabled="$ctrl.buttonDisabled" 
+-                ng-click="$ctrl.click($event)"
+-            >
+-                <amd-icon>edit</amd-icon>
+-            </amd-button>
+-        </div>
+-        <div>
+-            {{row.annotation_value}}
+-        </div>
++                <div>
++                    <amd-button title="Редактировать примечание" 
++                        data-color="{{$ctrl.buttonColor}}" 
++                        ng-disabled="$ctrl.buttonDisabled" 
++                        ng-click="$ctrl.setAnnotation(row)"
++                    >
++                        <amd-icon>edit</amd-icon>
++                    </amd-button>
++                </div>
++                <div>
++                    <amd-icon ng-if="!row.annotation_value">info</amd-icon>
++<!--                    {{row.annotation_value || 'Нет примечания'}}-->
++                </div>
+         `,
+     }
+ ]
+diff --git a/typescript/app/application/analytics/managers-block/list/page.module.ts b/typescript/app/application/analytics/managers-block/list/page.module.ts
+index b39f8bb875..606f7d2800 100644
+--- a/typescript/app/application/analytics/managers-block/list/page.module.ts
++++ b/typescript/app/application/analytics/managers-block/list/page.module.ts
+@@ -16,16 +16,38 @@ import {AmdFieldsHiderModule} from "../../../../angular/component/amd-grid/field
+ import {
+     ProductMeasureTypeHintComponent
+ } from "../../../../angular/component/amd-grid/elements/product-measure-type-hint.component";
++import {AmdDialogModule} from "../../../../angular/component/amd-dialog/amd-dialog.module";
++import {SetAnnotationFormComponent} from "./component/set-annotation.component";
++import {AnnotationComponent} from "../../../claim/components/fields/annotation/component/annotation.component";
++import {AmdClaimAnnotationModule} from "../../../claim/components/fields/annotation/amd-claim-annotation.module";
++import {
++    AmdClaimUnloadAddressModule
++} from "../../../claim/components/fields/unload-manager/amd-claim-unload-address.module";
++import {AmdClaimDimensionsModule} from "../../../claim/components/fields/dimensions/amd-claim-dimensions.module";
++import {AmdClaimDispatcherModule} from "../../../claim/components/fields/dispatcher/amd-claim-dispatcher.module";
++import {DeliveryComponent} from "../../../claim/components/fields/delivery/component/delivery.component";
++import {CarTypeComponent} from "../../../claim/components/fields/delivery/component/car-type.component";
++import {RentPriceComponent} from "../../../claim/components/fields/delivery/component/rent-price.component";
++import {CarDataComponent} from "../../../claim/components/fields/delivery/component/car-data.component";
++import {TypeComponent} from "../../../claim/components/fields/delivery/component/type.component";
++import {CarProxyComponent} from "../../../claim/components/fields/delivery/component/car-proxy.component";
+ 
+ @Module({
+     declarations: [
+         PageComponent,
+         ProductMeasureTypeHintComponent,
++        SetAnnotationFormComponent,
++
++        DeliveryComponent,
++        CarTypeComponent,
++        RentPriceComponent,
++        CarDataComponent,
++        TypeComponent,
++        CarProxyComponent,
+     ],
+     providers   : [
+         {provide: 'ConfigService', useValue: mod.config()},
+         {provide: AMD_ACCESS_SERVICE_DATA, useValue: mod.config().access},
+-
+     ],
+     imports     : [
+         AmdAccessModule,
+@@ -36,6 +58,14 @@ import {
+         AmdButtonModule,
+         AmdIconModule,
+         AmdFieldsHiderModule,
++        AmdDialogModule,
++        AmdClaimAnnotationModule,
++
++        AmdClaimUnloadAddressModule,
++        AmdClaimDimensionsModule,
++        AmdClaimDispatcherModule,
++        AmdClaimAnnotationModule,
++        AmdButtonModule,
+     ],
+ })
+ export class PageModule {}
+\ No newline at end of file

@@ -1,0 +1,783 @@
+<?php
+    // required: transaction, cashType, currentState, currentStateName, viewMode, changeStateActions, showUploadForm
+
+    $tr = $this->transaction;
+    $claimId = 0;
+    $checkDriver = (in_array($this->claimType, [
+        App_Claim_Factory::CLAIM_TYPE_OUT,
+        App_Claim_Factory::CLAIM_TYPE_OUT_RAW,
+        App_Claim_Factory::CLAIM_TYPE_RENT,
+        App_Claim_Factory::CLAIM_TYPE_RETURN_IN_RAW,
+        App_Claim_Factory::CLAIM_TYPE_RETURN_IN,
+        App_Claim_Factory::CLAIM_TYPE_TRANSFER,
+        App_Claim_Factory::CLAIM_TYPE_SUPPLY,
+        App_Claim_Factory::CLAIM_TYPE_MARKETPLACE_SUPPLY,
+    ])); // если необходимо проверить водителя
+
+    // для ремонта нашего/не нашего оборудования нужна проверка водителя при наличии товара в заявке
+    if (
+        in_array($this->claimType, [App_Claim_Factory::CLAIM_TYPE_REPAIR, App_Claim_Factory::CLAIM_TYPE_REPAIR_OUT]) &&
+        App_Db_ClaimProducts::obtain()->getRowField('claim_id', [
+            'claim_id = ?' => $tr->reason,
+            'flag = ?' => 1
+        ]) > 0
+    ) {
+        $checkDriver = true;
+    }
+
+    if (!$this->documentType == 'accepted') {
+        $claimId = (int)preg_replace('/[^\d]/', '', $tr->full_id);
+    }
+?>
+<?php
+
+/**
+ * Получение названия кнопки
+ * @param $stateName
+ * @param bool $tk
+ * @return string
+ * @throws Exception
+ */
+function _getButtonTitle($stateName, $tk = false)
+{
+    switch ($stateName) {
+        default:
+            throw new \Exception('Unknown stateName ' . var_export($stateName, true));
+
+        case 'save-changes':
+            return 'Сохранить';
+
+        case 'postpone':
+            if ($tk) {
+                return 'отложить(ТК)';
+            }
+            return 'отложить';
+
+        case 'reject':
+            return 'отклонить';
+
+        case 'accept':
+            return 'провести';
+    }
+}
+
+
+/**
+ * Получение стиля кнопки
+ * @param $stateName
+ * @return string
+ */
+function _getButtonCssClass($stateName)
+{
+    switch ($stateName) {
+        default:
+            return strtolower($stateName);
+
+        case 'save-changes':
+            return 'accept';
+
+        case 'postpone':
+            return 'disaccept';
+    }
+}
+?>
+
+<?php $this->headLink()->appendStylesheet("/js/jquery.damnUploader/css/main.css"); ?>
+<?php $this->headLink()->appendStylesheet("/css/cash/planned.css"); ?>
+<?php $this->headLink()->appendStylesheet("/css/themes/smoothness/ui.all.css"); ?>
+<?php $this->headLink()->appendStylesheet("/css/cash/planned/print.css", "print"); ?>
+
+<?php $this->headScript()->appendFile("/js/cash/planned/document-prefill.js"); ?>
+<?php $this->headScript()->appendFile("/js/cash/planned/main.js"); ?>
+<?php $this->headScript()->appendFile("/js/jquery.damnUploader/js/jquery.damnUploader.js"); ?>
+<?php $this->headScript()->appendFile("/js/cash/planned/documentControl.js"); ?>
+<?php $this->headScript()->appendFile("/js/jqueryui/jquery-ui.js"); ?>
+<?php $this->headScript()->appendFile("/js/jqueryui/datepickerru/ui.datepicker-ru.js"); ?>
+<?php $this->headScript()->appendFile("/js/jquery.maskedinput.min.js"); ?>
+
+<script type="text/javascript">
+    var transactions = [];
+    var cashType = '<?php echo $this->cashType; ?>';
+    var claimType = '<?php echo $this->claimType; ?>';
+    var claimSum = '<?php echo $this->claimSum; ?>';
+    var invoiceSum = '<?php echo $this->invoiceSum; ?>';
+    var viewMode = '<?php echo $this->viewMode; ?>';
+    var currentState = '<?php echo $this->currentState; ?>';
+    var permissions = {
+        'addDocuments': <?php echo intval(App_Access::get("access", "cash>account>planned>adddocuments")); ?>,
+        'delDocuments': <?php echo intval(App_Access::get("access", "cash>account>planned>deldocuments")); ?>,
+        'restrictsamples': <?php echo intval(App_Access::get("access", "cash>{$this->cashType}>planned>restrictsamples")); ?>,
+    };
+    var CashPlannedObject = {
+        transaction: <?php echo json_encode($tr, JSON_NUMERIC_CHECK) ?>,
+        permissions: permissions,
+        documentControl: transactions,
+        supplyDepartmentBlockEnabled: <?php echo (int) $this->showSupplyDepartmentSupport?>,
+        isOriginalDocumentExists: function () {
+            if (!this.documentControl[this.transaction.id].documents) {
+                return false;
+            }
+            return this.documentControl[this.transaction.id].documents.some(function (document) {
+                return document.type2 == 1 || document.type2 == 3;
+            });
+        },
+        _modules: {}, // дополнительные модули проверок и тп, модуль должен содержать метод save
+        save: function(sendData)
+        {
+            var errors = [];
+            var result;
+            for (var i in this._modules) {
+                if (true !== (result = this._modules[i].info(sendData))) {
+                    errors.push(result);
+                }
+            }
+
+            if (errors.length) {
+                alert(errors.join('\n'));
+                return false;
+            }
+
+            return true;
+        }
+    };
+
+    $(document).ready(function(){
+        $('.js-print').on('click', function(){
+            var claimId = $(this).data('claim-id');
+            var block = $('<div />', {
+                class: 'print-block',
+                text: 'Заявка #' + claimId,
+                style: 'display: none'
+            });
+            if (!$('body>.print-block').length) {
+                $('body').prepend(block);
+            }
+            window.print();
+        });
+    });
+</script>
+
+<div class="centered-block text-align_center">
+<!-- claim -->
+<h2><?php echo $this->title; ?></h2>
+<table width="550"
+       cellpadding="0"
+       cellspacing="1"
+       border="0"
+       class="amd-table cash-planned-table font-size_rem_08 square-text-input prepareTransaction claim-table csf-page-content"
+       style="display: block;"
+       id="table_<?php echo $tr->id; ?>">
+    <colgroup span="2">
+        <col span="1" width="200"/>
+        <col span="1" width="350"/>
+    </colgroup>
+    <thead>
+    <tr>
+        <?php if ($this->documentType == 'accepted') { ?>
+            <th colspan="2" style="text-align: left;">
+                Платеж #<?php echo $tr->id; ?>
+                <a href="<?php echo $this->claimLink; ?>" target="_blank">Заявка #<?php echo $tr->reason; ?></a>
+                <img src="/img/print.png" align="right" class="js-print" width="20" height="20" style="cursor: pointer" data-claim-id="<?php echo $tr->reason; ?>"/>
+            </th>
+        <?php } else { ?>
+            <th colspan="2" style="text-align: left;">
+                Платеж #<?php echo $tr->id; ?>
+                <a href="<?php echo $this->claimLink; ?>" target="_blank" style="color: #fff;">Заявка #<?php echo $tr->reason; ?></a>
+                <?php if ($this->cashType == "account") {?> (текущий статус: <?php echo $this->currentStateName; ?>)<?php } ?>
+                <img src="/img/print.png" align="right" class="js-print" width="20" height="20" style="cursor: pointer" data-claim-id="<?php echo $tr->reason; ?>"/>
+            </th>
+        <?php } ?>
+    </tr>
+    </thead>
+    <tbody>
+    <?php if ('money' == $this->cashType) { ?>
+        <tr>
+            <td width="200">
+                <label>Сумма</label>
+            </td>
+            <td width="350">
+                <span class="prepareSumm">
+                    <input type="hidden" value="0" name="factsumm"/>
+                    <input type="text" <?php if (!(int) App_Access::get("access", "cash>{$this->cashType}>access>add")) { ?> readonly="readonly"<?php } ?> value="<?php echo(is_null($tr->factsumm) ? '' : $tr->factsumm); ?>" name="summ" placeholder="<?php echo $tr->summ; ?>"/>
+                </span>
+            </td>
+        </tr>
+        <?php $this->headScript()->appendFile("/js/cash/cardsTransaction.js"); ?>
+    <script>
+        var cardsInfoParams = {
+                newTransactionObject: {
+                    access: {
+                        cardsinfo: '<?php echo (int) App_Access::get("access", "cash>money>access>cardsinfo") ?>'
+                    }
+                },
+                tableSelector: 'table.cash-planned-table:first'
+            };
+
+        var cardsInfo = new cardsAbstract(cardsInfoParams);
+        $(document).ready(function(){
+            cardsInfo.init();
+            $(document).on('click', '[data-slide=true]', function () {
+                $(this).closest('table').find('#' + $(this).data('children')).toggle();
+                return false;
+            });
+        });
+    </script>
+    <?php } ?>
+    <tr class="even">
+        <td>
+            <label>Наименование склада</label>
+        </td>
+        <td>
+            <span class="prepareSumm"><?php echo $tr->depot; ?></span>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <label>Назначение платежа</label>
+        </td>
+        <td>
+            <span class="prepareSumm">Продажа</span>
+        </td>
+    </tr>
+    <tr class="even">
+        <td>
+            <label>Валюта платежа</label>
+        </td>
+        <td>
+            <span class="prepareCurrency" val="">Рубль</span>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <label>Клиент</label>
+        </td>
+        <td>
+            <span class="prepareSumm" id="client_id"><?php echo $tr->client; ?></span>
+        </td>
+    </tr>
+    <tr class="even">
+        <td>
+            <label>Сумма</label>
+        </td>
+        <td>
+            <span class="prepareSumm" id="client_id">
+                <?php echo App_Formatter::number($this->claimSum, '.', ' ', 2); ?>
+            </span>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <label>Счет</label>
+        </td>
+        <td>
+            <?php
+            $invoiceName = '';
+            // вывод информаци по счетам заявки
+            foreach ($this->invoices as $invoice) {
+                if ($invoice['selected']) {
+                    $invoiceName = '№' . $invoice['id'] . ' ';
+                    $invoiceName.= ($invoice['revision'] === null) ? '(Оригинал)' : '(Версия №' . $invoice['revision'] . ')';
+                    ?>
+                    <a href="<?php echo $invoice['url'];?>" target="_blank"><?php echo $invoiceName;?></a>
+                    <?php
+                }
+            }
+            // если по заявке нет счетов вывести '-'
+            echo $invoiceName ? '' : '-';
+            ?>
+        </td>
+    </tr>
+    <tr id="tr-car" data-check-driver="<?php echo ($tr->car_number && $tr->car_number != -1 && $checkDriver) ? $tr->check_status : 0 ?>">
+        <td>
+            <label>Машина</label>
+        </td>
+        <td>
+                <span class="prepareSumm">
+                    <?php echo(is_null($tr->car_number)
+                        ? 'Не известно' : (-1 == $tr->car_number
+                            ? 'Самовывоз'
+                            : $tr->car_number . " (" . $tr->car_driver . ")" //" тел." . $tr->car_driver_phone .
+                        )
+                    ); ?>
+                </span>
+        </td>
+    </tr>
+<?php if ($tr->car_number && $tr->car_number != -1) { ?>
+    <tr>
+        <td>
+            <label>Телефон водителя</label>
+        </td>
+        <td>
+                <?php if ($checkDriver) { ?>
+                    <?php $this->headScript()->appendFile("/js/cash/planned/checkdriver.js"); ?>
+                    <div id="check-driver" data-phone="<?php echo $tr->car_driver_phone ?>" data-transaction="<?php echo $tr->id ?>">
+                        <div <?php if ($tr->check_status) { ?>class="check-success status-<?php echo $tr->check_status ?>"<?php }else{ ?> class="check-success" style="display:none;"<?php } ?>>
+                            <span class="icon"></span>
+                            <?php echo $tr->car_driver_phone ?> - проверка
+                            <span class="status status-3">не требуется (оригинал документов)</span>
+                            <span class="status status-2">не требуется</span>
+                            <span class="status status-1">пройдена</span>
+                        </div>
+                        <div class="check validate-driver" <?php if ($tr->check_status) { ?> style="display: none;"<?php } ?>>
+                            <div class="block-send">
+                                <span id="check-driver-phone"><?php echo $tr->car_driver_phone ?></span>
+                                <!-- <button class="amd-btn amd-btn_primary"
+                                        data-smsc="button-send"
+                                        data-time-out="<?php echo \App\Smsc\SMSCenterService::getInstance()->getTimeOut() ?>"
+                                        title="звонок водителю"
+                                >
+                                    <i class="fa-solid fa-phone-arrow-down-left"></i>
+                                </button> -->
+                                <button class="amd-btn amd-btn_success"
+                                        data-smsc="button-wait-call"
+                                        title="звонок от водителя"
+                                >
+                                    <i class="fa-solid fa-phone-arrow-up-right"></i>
+                                </button>
+                            </div>
+                            <div class="block-input-code display_none">
+                                <label><input type="text" data-smsc="input-code" placeholder="Проверочный код"></label>
+                                <button class="amd-btn amd-btn_primary" data-smsc="button-check">Подтвердить</button>
+                            </div>
+                            <div class="phone-check-wrapper display_none">
+                                <label><input type="text" class="phone-check-input" placeholder="Четыре цифры номера" autocomplete="off"></label>
+                                <button class="amd-btn amd-btn_primary phone-check-button">Подтвердить</button>
+                            </div>
+                        </div>
+                    </div>
+                <?php } else { ?>
+                    <div class="prepareSumm"><?php echo $tr->car_driver_phone ?></div>
+                <?php } ?>
+        </td>
+    </tr>
+<?php } ?>
+    <tr class="even">
+        <td>
+            <label>Основание</label>
+        </td>
+        <td>
+            <input type="text" class="prepareExcel" value="<?php echo $tr->excel; ?>" placeholder="номер Excel"/> /
+            <span class="prepareReason"><a href="<?php echo $this->claimLink ?>" target="_blank"
+                                           title="Открыть заявку"><?php echo $tr->full_id; ?></a></span>
+            <input type="hidden" name="claim_id" value="<?php echo $tr->reason; ?>"/>
+            <textarea class="cashReason mceNoEditor"><?php echo $tr->cash_reason; ?></textarea>
+        </td>
+    </tr>
+    <tr class="even">
+        <td>
+            <label>Примечание</label>
+        </td>
+        <td>
+            <textarea class="cashAnnotation mceNoEditor" id="annotation" fieldname="annotation" depotId="money"><?php echo $tr->annotation; ?></textarea>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <label>Дата платежа</label>
+        </td>
+        <td>
+            <span class="prepareDate"><?php echo date("d.m.Y", $tr->date_creating); ?></span>
+        </td>
+    </tr>
+    </tbody>
+    <?php if ($this->checkRequest) { ?>
+        <thead>
+        <tr>
+            <th colspan="2">
+                Запрос кассового чека
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>
+                <label>Наименование товара</label>
+            </td>
+            <td>
+                <?php echo $this->checkRequest['product'] ?>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <label>Кол-во</label>
+            </td>
+            <td>
+                <?php echo $this->checkRequest['amount'] ?>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <label>Цена за единицу</label>
+            </td>
+            <td>
+                <?php echo $this->checkRequest['price'] ?>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <label>Сумма</label>
+            </td>
+            <td>
+                <?php echo $this->checkRequest['price'] * $this->checkRequest['amount']  ?>
+            </td>
+        </tr>
+        </tbody>
+    <?php } ?>
+</table>
+<!-- / claim -->
+
+<?php if ($this->checkRequest) { ?>
+    <?php $this->headScript()->appendFile("/js/cash/planned/check-request.js"); ?>
+    <script>
+        $(document).ready(function ()
+        {
+            CashPlannedObject._modules.checkRequest = new Cash_Planned_CheckRequest(<?php echo json_encode($this->checkRequest) ?>);
+        });
+    </script>
+<?php } ?>
+
+<!-- documents upload form -->
+<script>
+    function showFileUploadForm()
+    {
+        return <?php echo $this->showFileUploadForm ? 'true' : 'false'; ?>;
+    }
+
+    function setUpFileUploadForm(name)
+    {
+        var form = $('table.' + name);
+
+        showFileUploadForm() ? form.show() : form.hide();
+    }
+
+    $(function(){
+        setUpFileUploadForm('tb-file-form');
+        setUpFileUploadForm('tb-file-form-tk');
+    });
+</script>
+<table width="550"
+       cellpadding="0"
+       cellspacing="1"
+       border="0"
+       class="amd-table font-size_rem_08 square-text-input prepareTransaction tb-file-form csf-file-form claim-table"
+       style="display: block;"
+       id="table_<?php echo htmlspecialchars($tr->id); ?>">
+<colgroup span="2">
+    <col span="1" width="200"/>
+    <col span="1" width="350"/>
+</colgroup>
+<?php
+    echo $this->partial(
+        "planned/form/" . $this->cashType . ".phtml",
+        [
+            'tr'          => $tr,
+            'tk'          => 0,
+            'name'        => $tr->tk ? 'Документы клиент' : 'Документы',
+            'prefillData' => $this->prefillData
+        ]
+    );
+?>
+</table>
+<!-- submit buttons -->
+<?php if($this->showSubmitButtons) { ?>
+
+    <?php
+        if ('account' == $this->cashType &&
+            App_Db::get(DB_CLAIM_INVOICES)->claimMarkedAsDocumentsOnTransportLoad($tr->reason)
+        ) {
+    ?>
+        <table width="550" cellpadding="0" cellspacing="1" border="0" class="amd-table font-size_rem_08 square-text-input">
+            <tr>
+                <td colspan="2" align="center">
+                    <label><input type="radio" name="transport_out" value="0" <?php echo ($tr->transport_out == "0" ? 'checked="checked"' : '')?>/> Не выбрано</label>
+                    <label><input type="radio" name="transport_out" value="1" <?php echo ($tr->transport_out == "1" ? 'checked="checked"' : '')?>/> Выпускать</label>
+                    <label><input type="radio" name="transport_out" value="2" <?php echo ($tr->transport_out == "2" ? 'checked="checked"' : '')?>/> Не выпускать</label>
+                </td>
+            </tr>
+        </table>
+        <script type="text/javascript">
+            // управление кнопками "Отложить" и "Отложить без саппорта"
+            $(document).ready(function(){
+                switch ($('input[name="transport_out"]:checked').val()) {
+                    case "0":
+                        $('.disaccept:not(.js-tk)').prop('disabled', true);
+                        break;
+                    case "2":
+                        $('.accept:not(.js-tk)').prop('disabled', true);
+                        break;
+                }
+
+                $('input[name="transport_out"]').on('change', function(){
+                    if ($(this).val() == 0) {
+                        $('.disaccept:not(.js-tk)').prop('disabled', true);
+                        $('.accept:not(.js-tk)').prop('disabled', false);
+                    } else if ($(this).val() == 2) {
+                        $('.disaccept:not(.js-tk)').prop('disabled', false);
+                        $('.accept:not(.js-tk)').prop('disabled', true);
+                    } else {
+                        $('.disaccept:not(.js-tk)').prop('disabled', false);
+                        $('.accept:not(.js-tk)').prop('disabled', false);
+                    }
+                });
+            });
+        </script>
+    <?php
+        }
+    ?>
+
+    <table width="550"
+           cellpadding="0"
+           cellspacing="1"
+           border="0"
+           class="amd-table font-size_rem_08 square-text-input prepareTransaction csf-page-content submit-buttons"
+           style="display: block;">
+        <tfoot>
+        <tr>
+            <td align="center" class="resultTd">
+                <?php
+                foreach ($this->changeStateActions as $n => $stateName) {
+                    $buttonTitle = htmlspecialchars(_getButtonTitle($stateName));
+                    $buttonCssClass = htmlspecialchars(_getButtonCssClass($stateName));
+                    $trId = htmlspecialchars($tr->id);
+                    $trReason = htmlspecialchars($tr->reason);
+
+                    echo "<input type='button'
+                        value='" . $buttonTitle . "'
+                        class='amd-btn amd-btn_primary " . $buttonCssClass . "'
+                        style='margin: 10px 0px 10px 0px;'
+                        trid='" . $trId . "'
+                        trreason='" . $trReason . "'>\n";
+                }
+                ?>
+                <!-- Для заявок у которых текущий статус: Оплачено 18% снимаем кнопку "Отложить без саппорта" -->
+                <?php if ($tr->state != Cash_Model_Planned_State::STATE_PAID_PERCENT && $this->showPostponeWithoutSupport) { ?>
+                    <input class="amd-btn amd-btn_primary disaccept" type="button" trid="<?php echo $trId ?>" trreason="<?php echo $trReason ?>" no_support="1" style="margin: 10px 0px 10px -10px;" value="отложить без саппорта">
+                <?php } ?>
+            </td>
+        </tr>
+        </tfoot>
+    </table>
+<?php } ?>
+<!-- /submit button -->
+<?php if ($tr->tk && $this->cashType == 'account') {?>
+<table width="550"
+       cellpadding="0"
+       cellspacing="1"
+       border="0"
+       class="amd-table font-size_rem_08 square-text-input prepareTransaction tb-file-form-tk csf-file-form claim-table"
+       style="display: block;"
+       id="table_<?php echo htmlspecialchars($tr->id); ?>0">
+<colgroup span="2">
+    <col span="1" width="200"/>
+    <col span="1" width="350"/>
+</colgroup>
+<?php echo $this->partial("planned/form/" . $this->cashType . ".phtml", array("tr" => $tr, 'tk' => 1, "name" => 'Документы ТК')); ?>
+</table>
+
+<!-- submit buttons -->
+<?php if($this->showSubmitButtons) { ?>
+    <table width="550"
+           cellpadding="0"
+           cellspacing="1"
+           border="0"
+           class="amd-table font-size_rem_08 square-text-input prepareTransaction csf-page-content submit-buttons"
+           style="display: block;">
+        <tfoot>
+        <tr>
+            <td align="center" class="resultTd">
+                <?php
+                foreach ($this->changeStateActions as $n => $stateName) {
+                    $buttonTitle = htmlspecialchars(_getButtonTitle($stateName, TRUE));
+                    $buttonCssClass = htmlspecialchars(_getButtonCssClass($stateName));
+                    $trId = htmlspecialchars($tr->id);
+                    $trReason = htmlspecialchars($tr->reason);
+
+                    echo "<input type='button'
+                        value='" . $buttonTitle . "'
+                        class='js-tk amd-btn amd-btn_primary " . $buttonCssClass . "'
+                        style='margin: 10px 0px 10px 0px;'
+                        trid='" . $trId . "'
+                        trreason='" . $trReason . "'
+                        tk='1'>\n";
+                }
+                ?>
+            </td>
+        </tr>
+        </tfoot>
+    </table>
+<?php } ?>
+<!-- /submit button -->
+<?php }?>
+<!-- /documents upload form -->
+
+<!-- change status -->
+<?php if ($this->showChangeStateForm) { ?>
+    <?php $this->headScript()->appendFile("/js/cash/planned/changeState.js"); ?>
+    <script>
+        $(function ()
+        {
+            var form = $('#changeStatusForm');
+            var fileForm = $('table.csf-file-form');
+
+            var csf = new ChangeStatusForm({
+                form: form,
+                formContent: form.find('div.csf-content'),
+                formMessage: form.find('div.csf-message'),
+                formCancelButton: form.find('input.cancel'),
+                formFileForm: fileForm,
+                availableDowngradeStates: <?php echo json_encode($this->availableDowngradeStates) ?>,
+                defaultState: "<?php echo htmlspecialchars($this->currentState); ?>"
+            });
+
+            csf.enabledChangeStatusSample = <?php echo (App_Analytics_Sample_Helper::isDeleted($claimId) ? 'true' : 'false')?>;
+            csf.notChangeStatusMsg = 'Не возможно изменить статус \nт.к. по <?php echo $tr->full_id ?> заявке назначены штрафы\nза просрочку документов по испытаниям образцов';
+
+            ChangeStatusForm.prototype.customInitState = function()
+            {
+                var table = $('table.csf-file-form');
+                var separator = table.find('tr.separator');
+                var cExamples = $('input#samples');
+                var cExchange = $('input#exchange');
+
+                cExamples.removeAttr('checked').val(1);
+                cExchange.removeAttr('checked').val(1);
+                separator.show();
+
+                $.each(separator.nextAll(), function (n, id)
+                {
+                    $(id).show();
+                });
+
+                if(this.hasSelectedAnyState()) {
+                    this.fileFormHideStatusCheckboxes();
+                }else{
+                    this.fileFormRestoreCheckboxes();
+                }
+            }
+
+            ChangeStatusForm.prototype.customResetForm = function()
+            {
+                setUpFileUploadForm('tb-file-form');
+                setUpFileUploadForm('tb-file-form-tk');
+                this.fileFormRestoreCheckboxes();
+            }
+
+            csf.getStateSelector().change(function(){
+                if (!csf.enabledChangeStatusSample) {
+                    this.value="empty";
+                    $('#changeStatusForm')[0].onsubmit = function(){return false;};
+                    return;
+                }
+                window.location.hash = 'changeStatusForm';
+
+                var submitButtons = $('table.submit-buttons');
+
+                if (csf.hasSelectedAnyState()) {
+                    submitButtons.hide();
+                }else{
+                    submitButtons.show();
+                }
+            });
+
+            csf.getCancelButton().click(function() {
+                window.location.hash = '#';
+            });
+
+            csf.customResetForm();
+        });
+    </script>
+
+    <form id="changeStatusForm" method="post"
+          action="<?php echo $this->linkPrefix(); ?>/cash/planned/<?php echo htmlspecialchars($this->cashType); ?>/change-state-perform">
+        <input type="hidden" name="transactionId" value="<?php echo htmlspecialchars($tr->id) ?>"/>
+
+        <div class="csf-content">
+            <table width="550" cellpadding="0" cellspacing="1" border="0"
+                   class="amd-table font-size_rem_08 square-text-input prepareTransaction csf-form-content" style="display: block;">
+                <colgroup span="2">
+                    <col span="1" width="200"/>
+                    <col span="1" width="350"/>
+                </colgroup>
+                <thead>
+                <th class="separator" colspan="2">
+                    Смена статуса
+                </th>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Новый статус</td>
+                    <td>
+                        <select name="newState">
+                            <option value="empty">-- Выберите статус --</option>
+                            <?php foreach ($this->availableDowngradeStates as $state) { ?>
+                                <option value="<?php echo htmlspecialchars($state['name']); ?>">
+                                    <?php echo htmlspecialchars($state['title']); ?>
+                                </option>
+                            <?php } ?>
+                        </select>
+                        <input type="submit" value="Сменить" class="amd-btn amd-btn_primary accept"/>
+                        <input type="button" value="Отмена" class="amd-btn amd-btn_primary cancel"/>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+
+            <div class="csf-message">
+                <p></p>
+            </div>
+        </div>
+    </form>
+<?php } ?>
+<!-- /change status -->
+
+<?php $this->headScript()->appendFile("/js/cash/planned/samples.js"); ?>
+<script>
+    $(document).ready(function ()
+    {
+        CashPlannedObject._modules.samples = new Cash_Planned_Samples({CashPlannedObject: CashPlannedObject});
+    });
+</script>
+
+
+<?php if ($this->showSupplyDepartmentSupport && !$this->supplyDepartmentTicket) { ?>
+    <div class="js-create-supply-department-ticket-container">
+        <input type="hidden" name="planned_id" value="<?php echo $tr->id?>"/>
+        <table width="550" cellpadding="0" cellspacing="1" border="0" class="amd-table font-size_rem_08 square-text-input prepareTransaction csf-page-content">
+            <tr class="separator">
+                <td>Документы для бухгалтерии</td>
+            </tr>
+            <tr>
+                <td>
+                    <input type="file" multiple/>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <input type="button" value="Отправить в бухгалтерию" class="amd-btn amd-btn_primary js-create-supply-department-ticket"/>
+                </td>
+            </tr>
+        </table>
+    </div>
+<?php } ?>
+
+<?php if ($this->supplyDepartmentTicket instanceof \App\Finance\Ticket\Type\SupplyDepartment\Document\Ticket) { ?>
+<div>
+    <table width="550" cellpadding="0" cellspacing="1" border="0" class="amd-table font-size_rem_08 square-text-input prepareTransaction csf-page-content">
+        <tr class="separator">
+            <td>Документы для бухгалтерии</td>
+        </tr>
+        <tr>
+            <td>
+                <div class="warning-block">
+                <?php if ($this->supplyDepartmentTicket->getStatusHandler()->isActive()) {?>
+                    Загружены и находятся на рассмотрении бухгалтерии
+                <?php } else if ($this->supplyDepartmentTicket->getStatusHandler()->isArchived()) {?>
+                    Обработаны бухгалтерией
+                <?php } ?>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+<?php } ?>
+</div>

@@ -1,0 +1,1 @@
+type TDays: {dayOfWeek: number, day: number}[]

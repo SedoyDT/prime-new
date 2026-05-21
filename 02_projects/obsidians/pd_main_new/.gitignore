@@ -1,0 +1,7 @@
+.obsidian/workspace.json
+amd-projects/*
+.smart-env/*
+
+# Ignore Smart Environment folder
+.smart-env
+.obsidian/copilot-index-*.json

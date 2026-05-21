@@ -1,0 +1,87 @@
+{
+  "botToken": "6920753901:AAGKALr1nv2YgPSgl5LUyiHOksTBddlFOv8",
+  "deleteMessagesFromTelegram": false,
+  "allowedChats": [
+    "mgfrlv",
+    "-100445587815",
+    "445587815"
+  ],
+  "mainDeviceId": "",
+  "pluginVersion": "3.1.0",
+  "telegramSessionType": "bot",
+  "telegramSessionId": 20240315073236880,
+  "betaVersion": "",
+  "connectionStatusIndicatorType": "CONSTANT",
+  "cacheCleanupAtStartup": false,
+  "messageDistributionRules": [
+    {
+      "messageFilterQuery": "{{chat=obsidian}}{{topic=obsidian-anki-self-development}}",
+      "messageFilterConditions": [
+        {
+          "conditionType": "chat",
+          "operation": "=",
+          "value": "obsidian"
+        },
+        {
+          "conditionType": "topic",
+          "operation": "=",
+          "value": "obsidian-anki-self-development"
+        }
+      ],
+      "templateFilePath": "Obsidian folder/templates/telegram/anki_self_development_chat.md",
+      "notePathTemplate": "inbox/Telegram/anki/self-development/",
+      "filePathTemplate": "inbox/Telegram/anki/self-development/self-development",
+      "reversedOrder": false,
+      "heading": "inbox/Telegram/anki/self-development/self-development"
+    },
+    {
+      "messageFilterQuery": "{{chat=obsidian}}{{topic=python}}",
+      "messageFilterConditions": [
+        {
+          "conditionType": "chat",
+          "operation": "=",
+          "value": "obsidian"
+        },
+        {
+          "conditionType": "topic",
+          "operation": "=",
+          "value": "python"
+        }
+      ],
+      "templateFilePath": "Obsidian folder/templates/telegram/python.md",
+      "notePathTemplate": "inbox/Telegram/anki/python/",
+      "filePathTemplate": "inbox/Telegram/anki/python/python",
+      "reversedOrder": false,
+      "heading": ""
+    }
+  ],
+  "defaultMessageDelimiter": true,
+  "parallelMessageProcessing": false,
+  "processOldMessages": false,
+  "processOldMessagesSettings": {
+    "lastProcessingDate": 1710403680,
+    "daysLimit": 14,
+    "dialogsLimit": 100,
+    "messagesLimit": 1000,
+    "chatsForSearch": []
+  },
+  "processOtherBotsMessages": false,
+  "retryFailedMessagesProcessing": false,
+  "topicNames": [
+    {
+      "name": "obsidian-anki-self-development",
+      "chatId": -1002142024965,
+      "topicId": 2
+    },
+    {
+      "name": "python",
+      "chatId": -1002142024965,
+      "topicId": 781
+    },
+    {
+      "name": "python",
+      "chatId": -1002020607338,
+      "topicId": 7
+    }
+  ]
+}

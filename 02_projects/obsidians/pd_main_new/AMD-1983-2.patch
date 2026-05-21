@@ -1,0 +1,520 @@
+diff --git a/application/modules/analitics/Bootstrap.php b/application/modules/analitics/Bootstrap.php
+index 947e481d68..f4f3d174b8 100644
+--- a/application/modules/analitics/Bootstrap.php
++++ b/application/modules/analitics/Bootstrap.php
+@@ -19,6 +19,16 @@ class Analitics_Bootstrap extends Zend_Application_Module_Bootstrap
+         /** @var $router Zend_Controller_Router_Rewrite */
+         $router = $frontController->getRouter();
+ 
++        $router->addRoute('depotPhotoGallery', new Zend_Controller_Router_Route(
++            '/depot/photo-gallery/:action/',
++            [
++                'module' => 'depot',
++                'controller' => 'photo-gallery_index',
++                'action' => 'index',
++            ]
++        ));
++
++
+         // add /analitics/finance/status/:status route
+         $router->addRoute("analytics_finance_index", new Zend_Controller_Router_Route(
+             "/analitics/finance/status/:status",
+diff --git a/application/modules/depot/controllers/PhotoGallery/IndexController.php b/application/modules/depot/controllers/PhotoGallery/IndexController.php
+index c881ee53d1..816a555f97 100644
+--- a/application/modules/depot/controllers/PhotoGallery/IndexController.php
++++ b/application/modules/depot/controllers/PhotoGallery/IndexController.php
+@@ -51,7 +51,7 @@ class Depot_PhotoGallery_IndexController extends AbstractFilterPageController
+     public function createFilter()
+     {
+         return $this->getFilterConfigurator()->setUpFilter(
+-            (new Filter())
++            (new Filter())->setShowSql(true)
+         );
+     }
+ 
+diff --git a/library/App/Depot/PhotoGallery/Index/Filter.php b/library/App/Depot/PhotoGallery/Index/Filter.php
+index 27ac5f576b..9eace7a17f 100644
+--- a/library/App/Depot/PhotoGallery/Index/Filter.php
++++ b/library/App/Depot/PhotoGallery/Index/Filter.php
+@@ -41,15 +41,202 @@ class Filter extends \App\Development\TypeScript\AbstractFilter
+ 
+     public function getResultSql(): string
+     {
+-        $outClaim = App_Claim_Factory::CLAIM_TYPE_OUT;
+-        $c = $this->isUseMaskSql() ? '' : 'SQL_CALC_FOUND_ROWS';
++//        $outClaim = App_Claim_Factory::CLAIM_TYPE_OUT;
++//        $c = $this->isUseMaskSql() ? '' : 'SQL_CALC_FOUND_ROWS';
+ 
+         $sql = "
+-            SELECT
+-                apc.*
+-            FROM analytics_project_capitalization AS apc
+-            {WHERE} 
+-            ";
++                        SELECT SQL_CALC_FOUND_ROWS
++                d2.*,
++                CONCAT('/uploads/claim/detailed/', ddp.claim_id,'/', ddp.item_id,'/t_', ddp.filename) AS filename,
++                CONCAT('/uploads/claim/detailed/', ddp.claim_id,'/', ddp.item_id,'/',   ddp.filename) AS big_filename
++            FROM depot_detailed_photo AS ddp
++                     INNER JOIN
++                 (
++                     SELECT
++                         d.id,
++                         field1.text AS title,
++                         d.field1 AS titleId,
++                         field2.text AS prop,
++                         d.field2 AS propId,
++                         field3.text AS color,
++                         d.field3 AS colorId,
++                         field4.text AS boxType,
++                         d.field4 AS boxTypeId,
++                         d.field5 AS volum,
++                         d.field6 AS height,
++                         d.field7 AS width,
++                         d.field8 AS depth,
++                         d.field9 AS labelWeight,
++                         d.field10 AS inBoxes,
++                         d.field11 AS totalAmount,
++                         d.field12 AS totalBoxes,
++                         field13.text AS description,
++                         d.field13 AS description_md5,
++                         d.field14 AS block,
++                         d.field15 AS type,
++                         d.field16 AS is_archive,
++            
++                         ROUND(
++                                 IFNULL(
++                                         CASE WHEN d.field15 = 1
++                                                  THEN d.field11 - d.field14
++                                              ELSE (d.field12 - d.field14) * (d.field11/d.field12)
++                                             END - IFNULL(ddm.amountWeight, 0),
++                                         0
++                                 )
++                             , 5) AS amountWeight -- .?
++                             ,
++                         ROUND(
++                                 IFNULL(
++                                         CASE WHEN d.field15 = 1
++                                                  THEN (d.field11 - d.field14)/d.field10
++                                              ELSE d.field12 - d.field14
++                                             END - IFNULL(ddm.boxesRols, 0),
++                                         0
++                                 )
++                             , 5) AS boxesRols,
++                         ddmc.managersBlocksRowsCount,
++            # TODO заменить на basePriceCurrent
++                         bpc.out_current_price AS basePriceValue,
++            #              IFNULL(IFNULL(bp2.cur_price, bp1.cur_price), '') AS basePriceValue,
++                         bpc.out_current_price + IFNULL(dae.value, 0) AS basePriceWithAdditionalExpenses,
++            #              IFNULL(IFNULL(bp2.cur_price, bp1.cur_price), 0) + IFNULL(dae.value, 0) AS basePriceWithAdditionalExpenses,
++            #              IF(d2iw.value = -1, 'н.д.', IFNULL(ROUND(IFNULL(bp2.cur_price, bp1.cur_price) * d2iw.value, 8), '')) AS basePricePerItemValue,
++                         IF(d2iw.value = -1, 'н.д.', IFNULL(ROUND(bpc.out_current_price * d2iw.value, 8), '')) AS basePricePerItemValue,
++                         IFNULL(bp2.cur_price, '') AS basePriceSaleValue,
++                         UNIX_TIMESTAMP(bp2.date_to) * 1000 AS basePriceSaleDateToUnix,
++                         IF(d2iw.value = -1, 'н.д.', ROUND(bpc.out_current_price, 8)) AS itemBasePrice,
++            #              IF(d2iw.value = -1, 'н.д.', ROUND(IFNULL(bp2.cur_price, bp1.cur_price) * d2iw.value, 8)) AS itemBasePrice,
++            #              IFNULL(IFNULL(bp2_in.cur_price, bp1_in.cur_price), '') AS basePriceInValue,
++                         IFNULL(bpc.in_current_price, '') AS basePriceInValue,
++            #              IF(d2iw.value = -1, 'н.д.', IFNULL(ROUND(IFNULL(bp2_in.cur_price, bp1_in.cur_price) * d2iw.value, 8), '')) AS basePriceInPerItemValue,
++                         IF(d2iw.value = -1, 'н.д.', IFNULL(ROUND(bpc.in_current_price * d2iw.value, 8), '')) AS basePriceInPerItemValue,
++            #              IFNULL(bp2_in.cur_price, '') AS basePriceInSaleValue,
++                         IFNULL(bpc.in_sale_price, '') AS basePriceInSaleValue,
++                         IF(d2iw.value = -1, 'н.д.', ROUND(bpc.in_sale_price * d2iw.value, 8)) AS itemBasePriceIn,
++            #              IF(d2iw.value = -1, 'н.д.', ROUND(IFNULL(bp2_in.cur_price, bp1_in.cur_price) * d2iw.value, 8)) AS itemBasePriceIn,
++                         d2d.annotation_in AS annotationIn,
++                         d2d.product_type,
++                         d2iw.value AS item_weight
++                     FROM depot_2 AS d
++                              INNER JOIN depot_2_data AS d2d
++                                         ON
++                                             d2d.item_id = d.id
++                              LEFT JOIN depot_2_item_weight AS d2iw
++                                        ON
++                                            d2iw.id = d.id
++                              LEFT JOIN depot_2_fields AS field1 ON
++                         field1.id = d.field1
++                              LEFT JOIN depot_2_fields AS field2 ON
++                         field2.id = d.field2
++                              LEFT JOIN depot_2_fields AS field3 ON
++                         field3.id = d.field3
++                              LEFT JOIN depot_2_fields AS field4 ON
++                         field4.id = d.field4
++                              LEFT JOIN depot_2_fields AS field13 ON
++                         field13.id = d.field13
++                              LEFT JOIN (    SELECT
++                                                 sub_dd.item_id,
++                                                 IFNULL(SUM(
++                                                                sub_vddm.amount
++                                                                    - IFNULL(IF (
++                                                                                     sub_d2.field15 = 1,
++                                                                                     sub_vddmbi.block,
++                                                                                     ((sub_vddm.amount/sub_vddm.boxes) * sub_vddmbi.block)
++                                                                             ), 0)
++                                                        ), 0) as amountWeight,
++                                                 IFNULL(SUM(
++                                                                sub_vddm.boxes
++                                                                    - IFNULL(IF (
++                                                                                     sub_d2.field15 = 2,
++                                                                                     sub_vddmbi.block,
++                                                                                     sub_vddmbi.block / (sub_vddm.amount/sub_vddm.boxes)
++                                                                             ), 0)
++                                                        ), 0) AS boxesRols
++                                             FROM depot_detailed AS sub_dd
++                                                      JOIN depot_2 AS sub_d2 ON
++                                                 sub_d2.id = sub_dd.item_id
++                                                      LEFT JOIN claims AS sub_cl ON
++                                                 sub_cl.id = sub_dd.claim_id
++                                                      INNER JOIN view_depot_detailed_manager AS sub_vddm ON
++                                                 sub_vddm.dd_id = sub_dd.id
++                                                      LEFT JOIN view_depot_detailed_manager_block_info AS sub_vddmbi ON
++                                                 sub_vddmbi.dd_id = sub_vddm.dd_id AND
++                                                 sub_vddmbi.user_id = sub_vddm.user_id
++                                                      LEFT JOIN orgstructure_users AS sub_ou ON
++                                                 sub_ou.userId = sub_vddm.user_id
++                                             WHERE
++                                                 `sub_vddm`.`user_id` IS NOT NULL AND `sub_vddm`.`amount` > 0 AND `sub_cl`.`claim_status` = 0 AND sub_dd.depot_id IN (2) AND FALSE
++                                             GROUP BY sub_dd.item_id) AS ddm ON
++                         ddm.item_id = d.id
++            
++            
++                              LEFT JOIN (    SELECT
++                                                 sub_dd.item_id,
++                                                 COUNT(DISTINCT sub_dd.id) AS managersBlocksRowsCount
++                                             FROM depot_detailed AS sub_dd
++                                                      LEFT JOIN claims AS sub_cl ON
++                                                 sub_cl.id = sub_dd.claim_id
++                                                      INNER JOIN view_depot_detailed_manager AS sub_vddm
++                                                                 ON sub_vddm.dd_id = sub_dd.id
++                                                      LEFT JOIN orgstructure_users AS sub_ou ON
++                                                 sub_ou.userId = sub_vddm.user_id
++                                             WHERE
++                                                 `sub_vddm`.`user_id` IS NOT NULL AND `sub_vddm`.`amount` > 0 AND `sub_cl`.`claim_status` = 0 AND sub_dd.depot_id IN (2)
++                                             GROUP BY sub_dd.item_id) AS ddmc ON
++                         ddmc.item_id = d.id
++                     LEFT JOIN base_price_current AS bpc ON
++                         d.id = bpc.item_id
++            #                   LEFT JOIN base_prices AS bp1
++            #                             ON
++            #                                 (bp1.item_id = d.id) AND
++            #                                 (bp1.type = 1) AND
++            #                                 (bp1.bp_type = 1) AND
++            #                                 (bp1.cur_date <= NOW()) AND
++            #                                 (bp1.date_to >= NOW() OR bp1.date_to IS NULL) AND
++            #                                 (bp1.depot_id = 2)
++                              LEFT JOIN depot_additional_expenses AS dae ON
++                         dae.depot_id = 2 AND
++                         dae.product_id = d.id
++                              LEFT JOIN base_prices AS bp2
++                                        ON
++                                            (bp2.item_id = d.id) AND
++                                            (bp2.type = 2) AND
++                                            (bp2.bp_type = 1) AND
++                                            (bp2.cur_date <= NOW()) AND
++                                            (bp2.date_to >= NOW() OR bp2.date_to IS NULL) AND
++                                            (bp2.depot_id = 2)
++            #
++            #                   LEFT JOIN base_prices AS bp1_in
++            #                             ON
++            #                                 (bp1_in.item_id = d.id) AND
++            #                                 (bp1_in.type = 1) AND
++            #                                 (bp1_in.bp_type = 2) AND
++            #                                 (bp1_in.cur_date <= NOW()) AND
++            #                                 (bp1_in.date_to >= NOW() OR bp1_in.date_to IS NULL) AND
++            #                                 (bp1_in.depot_id = 2)
++            #                   LEFT JOIN base_prices AS bp2_in
++            #                             ON
++            #                                 (bp2_in.item_id = d.id) AND
++            #                                 (bp2_in.type = 2) AND
++            #                                 (bp2_in.bp_type = 2) AND
++            #                                 (bp2_in.cur_date <= NOW()) AND
++            #                                 (bp2_in.date_to >= NOW() OR bp2_in.date_to IS NULL) AND
++            #                                 (bp2_in.depot_id = 2)
++            
++                 ) AS d2
++                 ON
++                     d2.id = ddp.item_id
++            WHERE  (d2.amountWeight > 0)
++            ORDER BY id asc 
++        ";
++
++//        $sql = "
++//            SELECT
++//                apc.*
++//            FROM analytics_project_capitalization AS apc
++//            {WHERE}
++//            ";
+ 
+ //        App_Depot_Handlers_Wrapper::getInstance()
+ //            ->applyDepotConfigFieldsResult(
+diff --git a/library/App/Depot/PhotoGallery/Index/FilterConfigurator.php b/library/App/Depot/PhotoGallery/Index/FilterConfigurator.php
+index 268c26e755..9e4bbd2d65 100644
+--- a/library/App/Depot/PhotoGallery/Index/FilterConfigurator.php
++++ b/library/App/Depot/PhotoGallery/Index/FilterConfigurator.php
+@@ -13,10 +13,14 @@ namespace App\Depot\PhotoGallery\Index;
+ use App\Development\TypeScript\Mask\MaskInterface;
+ use App\Development\TypeScript\Mask\NumberMask;
+ use App\Development\TypeScript\Mask\StringMask;
++use App_Config;
++use App_Config_Depot;
+ use App_Constant_Depot_ItemTypes;
+ use App\Depot\PhotoGallery\Index\Filter as Filter;
++use App_Db;
+ use PHPExcel_Worksheet;
+ use stdClass;
++use Zend_Db;
+ 
+ class FilterConfigurator extends \App\Development\TypeScript\FilterConfigurator\DefaultFilterConfigurator
+ {
+@@ -33,19 +37,55 @@ class FilterConfigurator extends \App\Development\TypeScript\FilterConfigurator\
+     public function setUpFilter(Filter $filter)
+     {
+ 
+-        $filter->addMask([
+-            'caption'   => 'ID',
+-            'type'      => NumberMask::class,
+-            'name'      => 'id',
+-            'filterUse' => "select",
+-            'options'   => "
+-                SELECT 
+-                    acd.id as v,
+-                    acd.id as t
+-                FROM 
+-                    analytics_project_capitalization AS acd
+-            "
+-        ]);
++        $configData = App_Config::get('depot');
++        $config     = [];
++
++        $idList = App_Db::get()
++            ->query('SELECT DISTINCT item_id FROM depot_detailed_photo')
++            ->fetchAll(Zend_Db::FETCH_COLUMN)
++        ;
++
++        $idList = $idList ? join(',', $idList) : '0';
++
++        for ($i = 1; $i <= 9; $i++) {
++            $fieldData = $configData->{'field' . $i};
++
++            $config[] = (object) [
++                'caption'    => $fieldData->title,
++                'fieldName'  => $fieldData->filterfname,
++                'filterType' => $fieldData->filtertype,
++                'filterUse'  => $fieldData->filteruse,
++                'options'    => App_Config_Depot::getFieldOption($fieldData, $idList),
++            ];
++        }
++
++        foreach ($config as $item) {
++            if (is_string($item->options)) {
++//                $item->options = App_Db::get()->query($item->options)->fetchAll(Zend_Db::FETCH_OBJ);
++                $filter->addMask([
++                    'caption'   => $item->caption,
++                    'type'      => StringMask::class,
++                    'name'      => $item->fieldName,
++                    'filterUse' => $item->filterUse,
++                    'options'   => $item->options,
++                ]);
++            }
++        }
++
++
++//        $filter->addMask([
++//            'caption'   => 'ID',
++//            'type'      => NumberMask::class,
++//            'name'      => 'id',
++//            'filterUse' => "select",
++//            'options'   => "
++//                SELECT
++//                    acd.id as v,
++//                    acd.id as t
++//                FROM
++//                    analytics_project_capitalization AS acd
++//            "
++//        ]);
+ 
+ 
+ //        $filter->addMask([
+diff --git a/library/App/Development/TypeScript/AbstractFilter.php b/library/App/Development/TypeScript/AbstractFilter.php
+index f058e79853..5c3f3b1e37 100644
+--- a/library/App/Development/TypeScript/AbstractFilter.php
++++ b/library/App/Development/TypeScript/AbstractFilter.php
+@@ -497,6 +497,11 @@ abstract class AbstractFilter implements FilterInterface
+             $query = str_replace("{{$target}}", $condition, $query);
+         }
+ 
++        $sql = $query
++            . $having
++            . $order
++            . $limit;
++
+         return $query
+             . $having
+             . $order
+diff --git a/typescript/app/application/depot/photo-gallery/index/component/page.component.ts b/typescript/app/application/depot/photo-gallery/index/component/page.component.ts
+index 75f7d3c992..8acbf763a6 100644
+--- a/typescript/app/application/depot/photo-gallery/index/component/page.component.ts
++++ b/typescript/app/application/depot/photo-gallery/index/component/page.component.ts
+@@ -1,12 +1,7 @@
+ import {IComponentController} from "angular";
+-import {Component, Inject, Input, Require} from "../../../../../angular/decorator/component.decorator";
++import {Component} from "../../../../../angular/decorator/component.decorator";
+ import AmdGridComponent from "../../../../../angular/component/amd-grid/amd-grid.component";
+ import 'grid';
+-import '/js/depot/products/list/depot-products-admission-form.js';
+-import '/js/depot/products/list/depot-products-product-info.js';
+-import '/js/depot/products/list/depot-products-admission-sections.js';
+-import '/js/depot/products/list/depot-products-empty-form.js';
+-import '/js/depot/products/list/depot-products-reserve-info.js';
+ import '/js/filter/product-type-decorator.js'
+ import HttpDataSource from "../../../../../angular/component/amd-grid/data-source/http.data-source";
+ import {
+@@ -62,13 +57,6 @@ export class PageComponent implements IComponentController
+             mask: '/depot/photo-gallery/get-filter-mask',
+         });
+ 
+-        // this.gridDataSource = new HttpDataSource<any>({
+-        //     result: '/analitics/capitalization-delta/get-filter-result',
+-        //     config: '/analitics/capitalization-delta/get-filter-config',
+-        //     excel: '/analitics/capitalization-delta/get-filter-excel',
+-        //     mask: '/analitics/capitalization-delta/get-filter-mask',
+-        // });
+-
+     }
+ 
+     /**
+diff --git a/typescript/app/application/depot/photo-gallery/index/config/filter.config.ts b/typescript/app/application/depot/photo-gallery/index/config/filter.config.ts
+index b12c88eed5..416cbe014f 100644
+--- a/typescript/app/application/depot/photo-gallery/index/config/filter.config.ts
++++ b/typescript/app/application/depot/photo-gallery/index/config/filter.config.ts
+@@ -10,42 +10,52 @@ export var filterConfig: TDatatableTemplateConfig = {
+         {
+             name: 'id',
+             sort: true,
+-            caption: `ID`
+-        },
+-        // {
+-        //     name: 'year',
+-        //     sort: true,
+-        //     caption: `Год`
+-        // },
+-        // {
+-        //     name: 'month',
+-        //     sort: true,
+-        //     caption: `Месяц`
+-        // },
+-        // {
+-        //     name: 'turnover',
+-        //     sort: true,
+-        //     caption: `Прибыль`
+-        // },
+-        // {
+-        //     name: 'profit',
+-        //     sort: true,
+-        //     caption: `Чистая прибыль`
+-        // },
+-        // {
+-        //     name: 'final_project_money',
+-        //     sort: true,
+-        //     caption: `Деньги в проекте (конечная дата)`
+-        // },
+-        // // {
+-        // //     name: 'average_project_money',
+-        // //     sort: true,
+-        // //     caption: `Деньги в проекте (среднее значение)`
+-        // // },
+-        // {
+-        //     name: 'capitalization_delta',
+-        //     sort: true,
+-        //     caption: `Докапитализация`
+-        // },
++            caption: `Склад`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Наше производство/ покупное`
++        },
++        {
++            name: 'filename',
++            sort: true,
++            caption: `Наименование`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Назначение`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Размер`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Диаметр`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Модель`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Обозначение`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Текущая бц`
++        },
++        {
++            name: 'id',
++            sort: true,
++            caption: `Примечание`
++        },
+     ],
+ };
+diff --git a/typescript/app/application/depot/photo-gallery/index/page.module.ts b/typescript/app/application/depot/photo-gallery/index/page.module.ts
+index 82f263dfd0..76dd8de41e 100644
+--- a/typescript/app/application/depot/photo-gallery/index/page.module.ts
++++ b/typescript/app/application/depot/photo-gallery/index/page.module.ts
+@@ -1,18 +1,11 @@
+ import {PageComponent} from "./component/page.component"
+ import {Module} from "../../../../angular/decorator/module.decorator";
+ import {AmdCommonServiceModule} from "../../../../angular/common-service";
+-import {AmdIconModule} from "../../../../angular/component/amd-icon/amd-icon.module";
+ import {AmdButtonModule} from "../../../../angular/directive/amd-button/amd-button.module";
+-import {AmdDialogModule} from "../../../../angular/component/amd-dialog/amd-dialog.module";
+-import AmdGridModule from "../../../../angular/component/amd-grid/amd-grid.module";
+-import {DepotFiltersModule} from "../../../../angular/filter/depot/depot-filters.module";
+-import CommonFilters from "../../../../angular/common-filters";
+-import AmdSubFilterModule from "../../../../angular/component/amd-sub-filter/amd-sub-filter.module";
+ import {
+     ProductMeasureTypeHintComponent
+ } from "../../../../angular/component/amd-grid/elements/product-measure-type-hint.component";
+-import AmdZendFormModule from "../../../../angular/component/amd-zend-form/amd-zend-form.module";
+-import {AmdDatatableModule} from "../../../../angular/directive/markup/amd-datatable.directive";
++import {AmdGrid2Module} from "../../../../angular/component/amd-grid/amd-grid2.module";
+ 
+ @Module({
+     declarations: [
+@@ -25,15 +18,8 @@ import {AmdDatatableModule} from "../../../../angular/directive/markup/amd-datat
+     imports     : [
+         AmdButtonModule,
+         AmdCommonServiceModule,
+-        AmdGridModule,
+-        DepotFiltersModule,
+-        CommonFilters,
+-        AmdSubFilterModule,
+-        AmdIconModule,
+-        AmdButtonModule,
+-        AmdDialogModule,
+-        AmdZendFormModule,
+-        AmdDatatableModule,
++        AmdGrid2Module,
++
+     ],
+ 
+ })

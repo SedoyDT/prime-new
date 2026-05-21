@@ -1,0 +1,267 @@
+diff --git a/application/modules/depot/controllers/ListController.php b/application/modules/depot/controllers/ListController.php
+index 76d00debd2..9684939e5c 100644
+--- a/application/modules/depot/controllers/ListController.php
++++ b/application/modules/depot/controllers/ListController.php
+@@ -74,9 +74,11 @@ class Depot_ListController extends \App\Filter\Controller\AbstractDataSourceCont
+             $depotModel->save();
+ 
+             (new DepotSynchronizer())->synchronize($depotModel);
++            App_Network_Service_Synchronize_ChangedMarker::markChanged('depot_list', $depotModel->id);
+ 
+             // Завершить транзакцию
+             App_Db::get()->commit();
++
+         });
+     }
+ 
+diff --git a/application/modules/inventory/models/Index/Filter.php b/application/modules/inventory/models/Index/Filter.php
+index fdad44d4f7..738b27552f 100644
+--- a/application/modules/inventory/models/Index/Filter.php
++++ b/application/modules/inventory/models/Index/Filter.php
+@@ -172,6 +172,7 @@ class Inventory_Model_Index_Filter extends AbstractFilter
+             SELECT *
+             FROM (
+                 SELECT
++                    ext_inventory_depot_list.id AS depot_title,
+                     0 AS is_free,
+                     ext_inventory_accounting.id,
+                     ext_inventory_depot_detailed.project_id,
+@@ -282,10 +283,13 @@ class Inventory_Model_Index_Filter extends AbstractFilter
+                 LEFT JOIN users u
+                 ON 
+                     ext_inventory_accounting.deactivation_user = u.id
++                LEFT JOIN ext_inventory_depot_list ON 
++                    ext_inventory_depot_list.id = ext_inventory_depot_detailed.depot_id 
+     
+                 UNION ALL
+                 
+                 SELECT 
++                    ext_inventory_depot_list.id AS depot_title,
+                     1 AS is_free,
+                     ext_inventory_depot_detailed.id AS id,
+                     ext_inventory_depot_detailed.project_id,
+@@ -374,6 +378,8 @@ class Inventory_Model_Index_Filter extends AbstractFilter
+                     ext_inventory_depot_detailed.project_id = did2f_description.project_id AND
+                     did2f_description.fieldId = 13 AND
+                     did2f_description.id = ext_inventory_depot_2.field13
++                LEFT JOIN ext_inventory_depot_list ON 
++                    ext_inventory_depot_list.id = ext_inventory_depot_detailed.depot_id 
+                 WHERE ext_inventory_depot_detailed.free_amount > 0
+             ) AS data
+             {WHEREIN}
+@@ -397,6 +403,8 @@ class Inventory_Model_Index_Filter extends AbstractFilter
+             {WHERE}
+         ";
+ 
++//        echo "<pre>" . print_r($sql, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         return $sql;
+     }
+ 
+diff --git a/application/modules/inventory/models/Index/FilterConfigurator.php b/application/modules/inventory/models/Index/FilterConfigurator.php
+index 57693550b2..dc85d35c9a 100644
+--- a/application/modules/inventory/models/Index/FilterConfigurator.php
++++ b/application/modules/inventory/models/Index/FilterConfigurator.php
+@@ -31,6 +31,7 @@ abstract class Inventory_Model_Index_FilterConfigurator
+         $mask->create('select', 'project_create_user_id','project_create_user_id');
+ 
+         $mask->create('select', 'claim_in', 'claim_in');
++        $mask->create('select', 'depot_title', 'depot_title');
+         $mask->create('select', 'price', 'price');
+         $mask->create('select', 'project_item_id', 'project_item_id');
+         $mask->create('select', 'placing_hash', 'placing_hash');
+@@ -175,6 +176,19 @@ abstract class Inventory_Model_Index_FilterConfigurator
+             'options' => array()
+         ));
+ 
++        $config->create(array(
++            'caption' => 'Склад',
++            'fieldName' => 'depot_title',
++            'filterUse' => 'select',
++            'options' => "
++                SELECT DISTINCT
++                    id          AS v,
++                    title       AS t
++                FROM ext_inventory_depot_list
++                ORDER BY t ASC
++            "
++        ));
++
+         $config->create(array(
+             'fieldName' => "price",
+             'caption' => 'Цена',
+diff --git a/library/App/Claim/LinkedClaim/Type/MainOut/DomainModel.php b/library/App/Claim/LinkedClaim/Type/MainOut/DomainModel.php
+index 24f0fa6d3c..a479164e20 100644
+--- a/library/App/Claim/LinkedClaim/Type/MainOut/DomainModel.php
++++ b/library/App/Claim/LinkedClaim/Type/MainOut/DomainModel.php
+@@ -180,6 +180,10 @@ class App_Claim_LinkedClaim_Type_MainOut_DomainModel extends App_Claim_LinkedCla
+             $itemInfoHarvester = App_Network_Service_Synchronize_Data_Factory::create($this->getSubProjectModel()->getApplicationEnv(), 'depot_2');
+             $itemInfoHarvester->setPkValues(array($itemData['itemId']));
+             $itemInfo = $itemInfoHarvester->prepareData();
++//
++//            echo "<pre>" . print_r('$itemInfo', true); echo "</pre>"; // FrolovDEBUG
++//            echo "<pre>" . print_r($itemInfo, true); echo "</pre>"; // FrolovDEBUG
++//            exit();
+ 
+             $sender = new App_Network_Service_LinkedProject_Claim_Sender();
+             $sender->setProjectId($this->getSubProjectModel()->getId());
+diff --git a/library/App/Filter/Controller/AbstractFilterController.php b/library/App/Filter/Controller/AbstractFilterController.php
+index d3ddf8723b..32cc1a6820 100644
+--- a/library/App/Filter/Controller/AbstractFilterController.php
++++ b/library/App/Filter/Controller/AbstractFilterController.php
+@@ -103,6 +103,8 @@ abstract class App_Filter_Controller_AbstractFilterController extends Zend_Contr
+     public final function getfilterresultAction() {
+         $filter = $this->_getFilter();
+ 
++//        echo "<pre>" . print_r($this, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         header('Content-Type: application/json');
+         echo json_encode($filter->getResult());
+         exit();
+diff --git a/library/App/Network/Sender/Abstract.php b/library/App/Network/Sender/Abstract.php
+index ff240989bc..a5a0f9c9c9 100644
+--- a/library/App/Network/Sender/Abstract.php
++++ b/library/App/Network/Sender/Abstract.php
+@@ -117,6 +117,8 @@ class App_Network_Sender_Abstract
+         }
+ 
+         $this->_requestResult = new App_Network_Request_Result();
++//        echo "<pre>" . print_r($this->_requestResult, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         static::initErrorDescription();
+ 
+         // убираем возможность выставлять id проекта, если в классе уже выставлен проект
+@@ -177,6 +179,8 @@ class App_Network_Sender_Abstract
+ 
+         $result = curl_exec($this->_curl);
+ 
++//        echo "<pre>" . print_r($result, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         return $this->handleCurlResult($result);
+     }
+ 
+@@ -198,6 +202,8 @@ class App_Network_Sender_Abstract
+         if ($this->_getProject()->getUseSSL()) {
+             curl_setopt($this->_curl, CURLOPT_SSL_VERIFYPEER, 0);
+         }
++//        echo "<pre>" . print_r($this->_buildQuery(), true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         curl_setopt($this->_curl, CURLOPT_URL, $this->_getUrl());
+         curl_setopt($this->_curl, CURLOPT_POSTFIELDS, $this->_buildQuery());
+ 
+@@ -211,6 +217,13 @@ class App_Network_Sender_Abstract
+      */
+     public function handleCurlResult($result): bool
+     {
++//
++//        echo "<pre>" . print_r($this->getProjectId(), true); echo "</pre>"; // FrolovDEBUG
++//        exit();
++//
++//        echo "<pre>" . print_r($result, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
++
+         $this->_requestCode = curl_getinfo($this->_curl, CURLINFO_HTTP_CODE);
+ 
+         // curl не смог выполнить запрос
+@@ -254,6 +267,9 @@ class App_Network_Sender_Abstract
+         if (!empty($this->_data)) {
+             $simplifiedData = self::_simplifyArray(array('data' => $this->getData()));
+             $data = array_merge($data, $simplifiedData);
++//            echo "<pre>" . print_r('$data', true); echo "</pre>"; // FrolovDEBUG
++//            echo "<pre>" . print_r($data, true); echo "</pre>"; // FrolovDEBUG
++//            exit();
+         }
+ 
+         if (!empty($this->_files)) {
+@@ -436,6 +452,8 @@ class App_Network_Sender_Abstract
+      */
+     final public static function getErrorDescription($code, $defaultMessage = '')
+     {
++//        echo "<pre>" . print_r($code, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         if (array_key_exists((string) $code, self::$_errorsDescriptions)) {
+             return self::$_errorsDescriptions[$code];
+         }
+diff --git a/library/App/Network/Service/DepotCopy/Reciever.php b/library/App/Network/Service/DepotCopy/Reciever.php
+index 18f4befe96..fc35d4a389 100644
+--- a/library/App/Network/Service/DepotCopy/Reciever.php
++++ b/library/App/Network/Service/DepotCopy/Reciever.php
+@@ -21,9 +21,14 @@ class App_Network_Service_DepotCopy_Reciever extends App_Network_Reciever_Abstra
+         /** @var App_Depot_Handlers_Entity_DepotList|bool $depotModel */
+         $depotModel = !empty($data['depotModel']) ? unserialize($data['depotModel']) : false;
+ 
++//        echo "<pre>" . print_r('$depotModel', true); echo "</pre>"; // FrolovDEBUG
++//        echo "<pre>" . print_r($depotModel, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         if (!($depotModel instanceof App_Depot_Handlers_Entity_DepotList)) {
+             throw new \Exception('Для создания копии необходимо передать, модель склада!');
+         }
++//        echo "<pre>" . print_r($this->getProjectId(), true); echo "</pre>"; // FrolovDEBUG
++//        exit();;
+ 
+         $depotModel->type_id = 0;
+         $depotModel->client_id = null;
+diff --git a/public/css/scss/app/application/sales-funnel/analytics.css b/public/css/scss/app/application/sales-funnel/analytics.css
+index d7550fc1c9..b3a151fa79 100644
+--- a/public/css/scss/app/application/sales-funnel/analytics.css
++++ b/public/css/scss/app/application/sales-funnel/analytics.css
+@@ -15,7 +15,7 @@
+   height: min-content;
+ }
+ .dashboard__row {
+-  grid-column: 1/3;
++  grid-column: 1 / 3;
+ }
+ 
+ .dashboard-widget__title {
+@@ -225,7 +225,7 @@
+   justify-content: space-between;
+ }
+ .active-lead-lifetime-chart__control-cell_column-1 {
+-  grid-row: 1/3;
++  grid-row: 1 / 3;
+   grid-column: 1;
+ }
+ .active-lead-lifetime-chart__control-cell_1-2 {
+diff --git a/public/js/app/application/inventory/service/create-fields.service.js b/public/js/app/application/inventory/service/create-fields.service.js
+index de5cf66a4a..cf995d1dd7 100644
+--- a/public/js/app/application/inventory/service/create-fields.service.js
++++ b/public/js/app/application/inventory/service/create-fields.service.js
+@@ -244,7 +244,15 @@ define(["require", "exports"], function (require, exports) {
+             sort: true,
+             position: 400,
+             alias: (v, cnt, rowData) => rowData.in_repair_formatted
+-        }
++        },
++        depot_title: {
++            position: 2,
++            caption: 'Склад',
++            align: 'center',
++            width: 70,
++            sort: true,
++            alias: (v, cnt, rowData) => rowData.depot_title
++        },
+     };
+     class CreateFieldsService {
+         constructor(ConfigService, AjaxService) {
+diff --git a/typescript/app/application/inventory/service/create-fields.service.ts b/typescript/app/application/inventory/service/create-fields.service.ts
+index 6af00595db..2476539dd6 100644
+--- a/typescript/app/application/inventory/service/create-fields.service.ts
++++ b/typescript/app/application/inventory/service/create-fields.service.ts
+@@ -247,7 +247,15 @@ export const DEFAULT_FIELDS: Assoc<TFilterFieldParamsOrdered<any>> = {
+         sort: true,
+         position: 400,
+         alias: (v, cnt, rowData) => rowData.in_repair_formatted
+-    }
++    },
++    depot_title: {
++        position: 2,
++        caption: 'Склад',
++        align: 'center',
++        width: 70,
++        sort: true,
++        alias: (v, cnt, rowData) => rowData.depot_title
++    },
+ };
+ 
+ /**

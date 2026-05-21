@@ -1,0 +1,1916 @@
+{
+  "botToken": "be6251ac227c5995c02c1b32d3e2f87c5e2f240f58d4bfbbbc2d415aaf4453cbe241e9c3118a3d363cbf51d40376c5bf",
+  "encryptionByPinCode": false,
+  "botTokenEncrypted": true,
+  "deleteMessagesFromTelegram": false,
+  "allowedChats": [
+    "AnatoluyFrolov",
+    "exterrrnal",
+    "froltolya",
+    "-1002078140815",
+    "-1002277170738"
+  ],
+  "mainDeviceId": "",
+  "pluginVersion": "4.0.0",
+  "telegramSessionType": "bot",
+  "telegramSessionId": 20250527120838240,
+  "betaVersion": "",
+  "connectionStatusIndicatorType": "CONSTANT",
+  "cacheCleanupAtStartup": false,
+  "messageDistributionRules": [
+    {
+      "messageFilterQuery": "{{all}}",
+      "messageFilterConditions": [
+        {
+          "conditionType": "all",
+          "operation": "",
+          "value": ""
+        }
+      ],
+      "templateFilePath": "anki_inbox/ign/TG sync.md",
+      "notePathTemplate": "anki_inbox/{{chat:name}}/{{chat:name}}_{{topic:name}}/{{chat:name}}_{{topic:name}}.md",
+      "filePathTemplate": "anki_inbox/2024_03/Telegram/Telegram/",
+      "reversedOrder": true,
+      "heading": ""
+    },
+    {
+      "messageFilterQuery": "{{chat=python}}{{topic=python}}",
+      "messageFilterConditions": [
+        {
+          "conditionType": "chat",
+          "operation": "=",
+          "value": "python"
+        },
+        {
+          "conditionType": "topic",
+          "operation": "=",
+          "value": "python"
+        }
+      ],
+      "templateFilePath": "Obsidian folder/templates/chat_topic/python_python.md",
+      "notePathTemplate": "2024_03/Telegram/python/python/python_python.md",
+      "filePathTemplate": "2024_03/Telegram/python/python/",
+      "reversedOrder": true,
+      "heading": ""
+    },
+    {
+      "messageFilterQuery": "{{chat=python}}{{topic=pytest}}",
+      "messageFilterConditions": [
+        {
+          "conditionType": "chat",
+          "operation": "=",
+          "value": "python"
+        },
+        {
+          "conditionType": "topic",
+          "operation": "=",
+          "value": "pytest"
+        }
+      ],
+      "templateFilePath": "Obsidian folder/templates old/telegram/pytest.md",
+      "notePathTemplate": "2024_03/Telegram/python/python/python_pytest.md",
+      "filePathTemplate": "2024_03/Telegram/python/python/",
+      "reversedOrder": true,
+      "heading": ""
+    }
+  ],
+  "defaultMessageDelimiter": false,
+  "parallelMessageProcessing": true,
+  "processOldMessages": false,
+  "processOldMessagesSettings": {
+    "lastProcessingDate": 1777726197,
+    "daysLimit": 14,
+    "dialogsLimit": 100,
+    "messagesLimit": 1000,
+    "chatsForSearch": []
+  },
+  "processOtherBotsMessages": false,
+  "retryFailedMessagesProcessing": false,
+  "topicNames": [
+    {
+      "name": "python",
+      "chatId": -1002078140815,
+      "topicId": 3
+    },
+    {
+      "name": "pytest",
+      "chatId": -1002078140815,
+      "topicId": 15
+    },
+    {
+      "name": "pytest",
+      "chatId": -1002078140815,
+      "topicId": 24
+    },
+    {
+      "name": "test",
+      "chatId": -1002078140815,
+      "topicId": 36
+    },
+    {
+      "name": "test",
+      "chatId": -1002142125719,
+      "topicId": 25
+    },
+    {
+      "name": "Тонкое исскуство пофигизма",
+      "chatId": -1002142125719,
+      "topicId": 4
+    },
+    {
+      "name": "rest",
+      "chatId": -1002010698732,
+      "topicId": 3
+    },
+    {
+      "name": "soap",
+      "chatId": -1002010698732,
+      "topicId": 2
+    },
+    {
+      "name": "CI",
+      "chatId": -1002061496028,
+      "topicId": 2
+    },
+    {
+      "name": "gRPC",
+      "chatId": -1002061496028,
+      "topicId": 11
+    },
+    {
+      "name": "ApacheKafka",
+      "chatId": -1002025358556,
+      "topicId": 2
+    },
+    {
+      "name": "theory",
+      "chatId": -1002025358556,
+      "topicId": 8
+    },
+    {
+      "name": "Test",
+      "chatId": -1002086855215,
+      "topicId": 2
+    },
+    {
+      "name": "Java",
+      "chatId": -1001992756102,
+      "topicId": 2
+    },
+    {
+      "name": "postgresql",
+      "chatId": -1002115140001,
+      "topicId": 2
+    },
+    {
+      "name": "Все что хреново",
+      "chatId": -1002142125719,
+      "topicId": 71
+    },
+    {
+      "name": "Таймменеджмент",
+      "chatId": -1002131949198,
+      "topicId": 3
+    },
+    {
+      "name": "OSI",
+      "chatId": -1002087105126,
+      "topicId": 2
+    },
+    {
+      "name": "springboot",
+      "chatId": -1001992756102,
+      "topicId": 3
+    },
+    {
+      "name": "aqa",
+      "chatId": -1002086855215,
+      "topicId": 5
+    },
+    {
+      "name": "regexp",
+      "chatId": -1002086855215,
+      "topicId": 7
+    },
+    {
+      "name": "CICD",
+      "chatId": -1002061496028,
+      "topicId": 27
+    },
+    {
+      "name": "testing",
+      "chatId": -1002025358556,
+      "topicId": 38
+    },
+    {
+      "name": "ApacheKafka2",
+      "chatId": -1002025358556,
+      "topicId": 41
+    },
+    {
+      "name": "KafkaTool",
+      "chatId": -1002025358556,
+      "topicId": 45
+    },
+    {
+      "name": "xml",
+      "chatId": -1002010698732,
+      "topicId": 75
+    },
+    {
+      "name": "Мысли",
+      "chatId": -1002113478678,
+      "topicId": 9
+    },
+    {
+      "name": "Uml",
+      "chatId": -1002088536363,
+      "topicId": 2
+    },
+    {
+      "name": "gradle",
+      "chatId": -1001992756102,
+      "topicId": 13
+    },
+    {
+      "name": "http",
+      "chatId": -1002087105126,
+      "topicId": 6
+    },
+    {
+      "name": "groovy",
+      "chatId": -1001992756102,
+      "topicId": 17
+    },
+    {
+      "name": "RestAssured",
+      "chatId": -1001992756102,
+      "topicId": 38
+    },
+    {
+      "name": "restApi_SoapApi",
+      "chatId": -1002010698732,
+      "topicId": 23
+    },
+    {
+      "name": "Xpath",
+      "chatId": -1002010698732,
+      "topicId": 108
+    },
+    {
+      "name": "Цитаты",
+      "chatId": -1002131949198,
+      "topicId": 6
+    },
+    {
+      "name": "17 практик стоицизма",
+      "chatId": -1002142125719,
+      "topicId": 84
+    },
+    {
+      "name": "scrum",
+      "chatId": -1002086855215,
+      "topicId": 33
+    },
+    {
+      "name": "Selenide",
+      "chatId": -1001992756102,
+      "topicId": 55
+    },
+    {
+      "name": "patterns",
+      "chatId": -1002086855215,
+      "topicId": 47
+    },
+    {
+      "name": "kanban",
+      "chatId": -1002086855215,
+      "topicId": 49
+    },
+    {
+      "name": "Jenkins",
+      "chatId": -1002061496028,
+      "topicId": 8
+    },
+    {
+      "name": "Cucumber",
+      "chatId": -1001992756102,
+      "topicId": 158
+    },
+    {
+      "name": "198 точных фраз чтобы жить спокойно",
+      "chatId": -1002142125719,
+      "topicId": 91
+    },
+    {
+      "name": "Атомные привычки",
+      "chatId": -1002142125719,
+      "topicId": 90
+    },
+    {
+      "name": "OpenShift",
+      "chatId": -1002061496028,
+      "topicId": 35
+    },
+    {
+      "name": "ТВЕРДО-И-ЧЕТКО",
+      "chatId": -1002131949198,
+      "topicId": 2
+    },
+    {
+      "name": "Agile",
+      "chatId": -1002001277913,
+      "topicId": 14
+    },
+    {
+      "name": "Когнитивные_искажения",
+      "chatId": -1002087210712,
+      "topicId": 44
+    },
+    {
+      "name": "Правильное_мышление",
+      "chatId": -1002087210712,
+      "topicId": 9
+    },
+    {
+      "name": "ТВЕРДНО_И_ЧЕТКО",
+      "chatId": -1002001480592,
+      "topicId": 2
+    },
+    {
+      "name": "over",
+      "chatId": -1002051428936,
+      "topicId": 2
+    },
+    {
+      "name": "100-внимание",
+      "chatId": -1002142125719,
+      "topicId": 128
+    },
+    {
+      "name": "rep",
+      "chatId": -1002051428936,
+      "topicId": 47
+    },
+    {
+      "name": "Codes",
+      "chatId": -1002087105126,
+      "topicId": 24
+    },
+    {
+      "name": "СпособыРазвития",
+      "chatId": -1002064218681,
+      "topicId": 10
+    },
+    {
+      "name": "ВниманиеИпамять",
+      "chatId": -1002064218681,
+      "topicId": 12
+    },
+    {
+      "name": "Упражнения",
+      "chatId": -1002064218681,
+      "topicId": 2
+    },
+    {
+      "name": "Principles",
+      "chatId": -1002086855215,
+      "topicId": 205
+    },
+    {
+      "name": "Purpose",
+      "chatId": -1002086855215,
+      "topicId": 201
+    },
+    {
+      "name": "Allure",
+      "chatId": -1002086855215,
+      "topicId": 28
+    },
+    {
+      "name": "Виды-методы-уровни",
+      "chatId": -1001935288499,
+      "topicId": 39
+    },
+    {
+      "name": "Tdd",
+      "chatId": -1001935288499,
+      "topicId": 46
+    },
+    {
+      "name": "artefacts",
+      "chatId": -1001935288499,
+      "topicId": 37
+    },
+    {
+      "name": "scrum",
+      "chatId": -1001935288499,
+      "topicId": 28
+    },
+    {
+      "name": "Agile",
+      "chatId": -1001935288499,
+      "topicId": 26
+    },
+    {
+      "name": "stlc",
+      "chatId": -1001935288499,
+      "topicId": 8
+    },
+    {
+      "name": "sdlc",
+      "chatId": -1001935288499,
+      "topicId": 2
+    },
+    {
+      "name": "Запросы",
+      "chatId": -1002135094058,
+      "topicId": 2
+    },
+    {
+      "name": "waterfall",
+      "chatId": -1002001277913,
+      "topicId": 11
+    },
+    {
+      "name": "PromtEngeenirng",
+      "chatId": -1002074125808,
+      "topicId": 4
+    },
+    {
+      "name": "Kubernetes",
+      "chatId": -1002025358556,
+      "topicId": 178
+    },
+    {
+      "name": "Excel",
+      "chatId": -1002086855215,
+      "topicId": 267
+    },
+    {
+      "name": "queries",
+      "chatId": -1002115140001,
+      "topicId": 33
+    },
+    {
+      "name": "all",
+      "chatId": -1002115140001,
+      "topicId": 12
+    },
+    {
+      "name": "RabbitMq",
+      "chatId": -1002025358556,
+      "topicId": 5
+    },
+    {
+      "name": "Esb",
+      "chatId": -1002135094058,
+      "topicId": 9
+    },
+    {
+      "name": "ОценкаСложности",
+      "chatId": -1001935288499,
+      "topicId": 146
+    },
+    {
+      "name": "NetWorkBase",
+      "chatId": -1001935288499,
+      "topicId": 299
+    },
+    {
+      "name": "generally",
+      "chatId": -1001935288499,
+      "topicId": 215
+    },
+    {
+      "name": "ТерминологияОтАДоЯ",
+      "chatId": -1002245355713,
+      "topicId": 2
+    },
+    {
+      "name": "php",
+      "chatId": -1002160968226,
+      "topicId": 2
+    },
+    {
+      "name": "patterns",
+      "chatId": -1002160968226,
+      "topicId": 137
+    },
+    {
+      "name": "db",
+      "chatId": -1002160968226,
+      "topicId": 127
+    },
+    {
+      "name": "all",
+      "chatId": -1002160968226,
+      "topicId": 208
+    },
+    {
+      "name": "ror: Telegram bot has a limitation to get topic names. if the topic name displays incorrect, set the name manually using bot command `/topicName NAME`",
+      "chatId": -1002074125808,
+      "topicId": 2
+    },
+    {
+      "name": "Js",
+      "chatId": -1002160968226,
+      "topicId": 4
+    },
+    {
+      "name": "TS",
+      "chatId": -1002160968226,
+      "topicId": 6
+    },
+    {
+      "name": "angular",
+      "chatId": -1002160968226,
+      "topicId": 41
+    },
+    {
+      "name": "html",
+      "chatId": -1002160968226,
+      "topicId": 475
+    },
+    {
+      "name": "js_2",
+      "chatId": -1002160968226,
+      "topicId": 479
+    },
+    {
+      "name": "php_2",
+      "chatId": -1002160968226,
+      "topicId": 488
+    },
+    {
+      "name": "apache",
+      "chatId": -1002160968226,
+      "topicId": 501
+    },
+    {
+      "name": "php_classes_and_objects",
+      "chatId": -1002160968226,
+      "topicId": 579
+    },
+    {
+      "name": "css",
+      "chatId": -1002160968226,
+      "topicId": 476
+    },
+    {
+      "name": "php_basics",
+      "chatId": -1002160968226,
+      "topicId": 642
+    },
+    {
+      "name": "php_senddata_to_server",
+      "chatId": -1002160968226,
+      "topicId": 669
+    },
+    {
+      "name": "php_oop",
+      "chatId": -1002160968226,
+      "topicId": 678
+    },
+    {
+      "name": "php_base_posobilities",
+      "chatId": -1002160968226,
+      "topicId": 691
+    },
+    {
+      "name": "GRASP",
+      "chatId": -1002160968226,
+      "topicId": 698
+    },
+    {
+      "name": "SOLID",
+      "chatId": -1002160968226,
+      "topicId": 724
+    },
+    {
+      "name": "Git",
+      "chatId": -1002061496028,
+      "topicId": 7
+    },
+    {
+      "name": "Microservices",
+      "chatId": -1002061496028,
+      "topicId": 40
+    },
+    {
+      "name": "sql",
+      "chatId": -1002160968226,
+      "topicId": 757
+    },
+    {
+      "name": "programming",
+      "chatId": -1002160968226,
+      "topicId": 122
+    },
+    {
+      "name": "js_2_basics",
+      "chatId": -1002160968226,
+      "topicId": 808
+    },
+    {
+      "name": "js_3_functional_programming",
+      "chatId": -1002160968226,
+      "topicId": 821
+    },
+    {
+      "name": "js_4_oop",
+      "chatId": -1002160968226,
+      "topicId": 844
+    },
+    {
+      "name": "AngularJS_0",
+      "chatId": -1002160968226,
+      "topicId": 895
+    },
+    {
+      "name": "docker",
+      "chatId": -1002160968226,
+      "topicId": 956
+    },
+    {
+      "name": "js_5_classes",
+      "chatId": -1002160968226,
+      "topicId": 998
+    },
+    {
+      "name": "js_4_oop",
+      "chatId": -1002160968226,
+      "topicId": 996
+    },
+    {
+      "name": "js_6_arrays",
+      "chatId": -1002160968226,
+      "topicId": 1022
+    },
+    {
+      "name": "js_7_string_and_regs",
+      "chatId": -1002160968226,
+      "topicId": 1029
+    },
+    {
+      "name": "js_8_error_processing",
+      "chatId": -1002160968226,
+      "topicId": 1056
+    },
+    {
+      "name": "js_9_built_in_object",
+      "chatId": -1002160968226,
+      "topicId": 1077
+    },
+    {
+      "name": "js_10_collections_and_iterators",
+      "chatId": -1002160968226,
+      "topicId": 1098
+    },
+    {
+      "name": "js_12_events",
+      "chatId": -1002160968226,
+      "topicId": 1118
+    },
+    {
+      "name": "http",
+      "chatId": -1002160968226,
+      "topicId": 1137
+    },
+    {
+      "name": "js_13_forms",
+      "chatId": -1002160968226,
+      "topicId": 1140
+    },
+    {
+      "name": "js_15_json_xml",
+      "chatId": -1002160968226,
+      "topicId": 1150
+    },
+    {
+      "name": "js_17_async",
+      "chatId": -1002160968226,
+      "topicId": 1159
+    },
+    {
+      "name": "js_20_websocket_0",
+      "chatId": -1002160968226,
+      "topicId": 1184
+    },
+    {
+      "name": "js_29_additional_0",
+      "chatId": -1002160968226,
+      "topicId": 1188
+    },
+    {
+      "name": "ts_2_basics",
+      "chatId": -1002160968226,
+      "topicId": 1198
+    },
+    {
+      "name": "ts_3_oop",
+      "chatId": -1002160968226,
+      "topicId": 1252
+    },
+    {
+      "name": "ts_4_namespaces",
+      "chatId": -1002160968226,
+      "topicId": 1299
+    },
+    {
+      "name": "ts_5_globals",
+      "chatId": -1002160968226,
+      "topicId": 1332
+    },
+    {
+      "name": "ts_5_decorators",
+      "chatId": -1002160968226,
+      "topicId": 1335
+    },
+    {
+      "name": "angular_0",
+      "chatId": -1002160968226,
+      "topicId": 1360
+    },
+    {
+      "name": "angular_2",
+      "chatId": -1002160968226,
+      "topicId": 1375
+    },
+    {
+      "name": "git",
+      "chatId": -1002160968226,
+      "topicId": 1386
+    },
+    {
+      "name": "js_new",
+      "chatId": -1002160968226,
+      "topicId": 1400
+    },
+    {
+      "name": "angular_5",
+      "chatId": -1002160968226,
+      "topicId": 1410
+    },
+    {
+      "name": "angular_7",
+      "chatId": -1002160968226,
+      "topicId": 1420
+    },
+    {
+      "name": "m_angular_",
+      "chatId": -1002160968226,
+      "topicId": 1431
+    },
+    {
+      "name": "m_angular_modules",
+      "chatId": -1002160968226,
+      "topicId": 1437
+    },
+    {
+      "name": "m_angular_basics",
+      "chatId": -1002160968226,
+      "topicId": 1450
+    },
+    {
+      "name": "m_angular_3_services",
+      "chatId": -1002160968226,
+      "topicId": 1486
+    },
+    {
+      "name": "templates",
+      "chatId": -1002160968226,
+      "topicId": 1499
+    },
+    {
+      "name": "m_angular_4_routing",
+      "chatId": -1002160968226,
+      "topicId": 1503
+    },
+    {
+      "name": "m_angular_5_injections",
+      "chatId": -1002160968226,
+      "topicId": 1518
+    },
+    {
+      "name": "mindfullness",
+      "chatId": -1002001480592,
+      "topicId": 72
+    },
+    {
+      "name": "php_docs",
+      "chatId": -1002160968226,
+      "topicId": 1559
+    },
+    {
+      "name": "0_php_reference",
+      "chatId": -1002160968226,
+      "topicId": 1575
+    },
+    {
+      "name": "1_php_operators",
+      "chatId": -1002160968226,
+      "topicId": 1638
+    },
+    {
+      "name": "2_control_structures",
+      "chatId": -1002160968226,
+      "topicId": 1641
+    },
+    {
+      "name": "3_functionss",
+      "chatId": -1002160968226,
+      "topicId": 1652
+    },
+    {
+      "name": "4_php_links",
+      "chatId": -1002160968226,
+      "topicId": 1661
+    },
+    {
+      "name": "CSSHTML_12_grid_loyout",
+      "chatId": -1002160968226,
+      "topicId": 1688
+    },
+    {
+      "name": "CSSHTML_11_flexbox",
+      "chatId": -1002160968226,
+      "topicId": 1722
+    },
+    {
+      "name": "CSSHTML_13_css_variables",
+      "chatId": -1002160968226,
+      "topicId": 1733
+    },
+    {
+      "name": "git",
+      "chatId": -1002160968226,
+      "topicId": 1776
+    },
+    {
+      "name": "CSS_Выравнивание_элементов",
+      "chatId": -1002160968226,
+      "topicId": 1855
+    },
+    {
+      "name": "CSS_HTML_1&2_введение_и_элементы",
+      "chatId": -1002160968226,
+      "topicId": 1866
+    },
+    {
+      "name": "CSSHtML_3_forms",
+      "chatId": -1002160968226,
+      "topicId": 1921
+    },
+    {
+      "name": "CSSHTML_5_styles",
+      "chatId": -1002160968226,
+      "topicId": 1979
+    },
+    {
+      "name": "CSSHtML6_properties",
+      "chatId": -1002160968226,
+      "topicId": 2094
+    },
+    {
+      "name": "CSSHTML_7_page_maket",
+      "chatId": -1002160968226,
+      "topicId": 2121
+    },
+    {
+      "name": "CSSHTML_8_transformation_animations",
+      "chatId": -1002160968226,
+      "topicId": 2172
+    },
+    {
+      "name": "CSSHTML_9_addaptive_design",
+      "chatId": -1002160968226,
+      "topicId": 2185
+    },
+    {
+      "name": "php_docs",
+      "chatId": -1002160968226,
+      "topicId": 2192
+    },
+    {
+      "name": "php_docs_types_2",
+      "chatId": -1002160968226,
+      "topicId": 2202
+    },
+    {
+      "name": "php_docs_variables_3",
+      "chatId": -1002160968226,
+      "topicId": 2271
+    },
+    {
+      "name": "php_docs_operators_4",
+      "chatId": -1002160968226,
+      "topicId": 2284
+    },
+    {
+      "name": "php_docs_function_6",
+      "chatId": -1002160968226,
+      "topicId": 2330
+    },
+    {
+      "name": "php_docs_classes_and_objects_7",
+      "chatId": -1002160968226,
+      "topicId": 2332
+    },
+    {
+      "name": "php_docs_namespaces_8",
+      "chatId": -1002160968226,
+      "topicId": 2364
+    },
+    {
+      "name": "php_docs_exception_10",
+      "chatId": -1002160968226,
+      "topicId": 2399
+    },
+    {
+      "name": "php_docs_links_explanation_12",
+      "chatId": -1002160968226,
+      "topicId": 2423
+    },
+    {
+      "name": "php_docs_predefined_variables_13",
+      "chatId": -1002160968226,
+      "topicId": 2442
+    },
+    {
+      "name": "php_docs_Built-in_nterfaces_And_Classes",
+      "chatId": -1002160968226,
+      "topicId": 2454
+    },
+    {
+      "name": "php_options_and_context_parameters_16",
+      "chatId": -1002160968226,
+      "topicId": 2490
+    },
+    {
+      "name": "Db",
+      "chatId": -1002160968226,
+      "topicId": 2500
+    },
+    {
+      "name": "PROJECT",
+      "chatId": -1002224964559,
+      "topicId": 5
+    },
+    {
+      "name": "php",
+      "chatId": -1002224964559,
+      "topicId": 2
+    },
+    {
+      "name": "mysql",
+      "chatId": -1002160968226,
+      "topicId": 2526
+    },
+    {
+      "name": "mysql_data_types",
+      "chatId": -1002160968226,
+      "topicId": 2562
+    },
+    {
+      "name": "Mysql_stored_objects",
+      "chatId": -1002160968226,
+      "topicId": 2573
+    },
+    {
+      "name": "CSS",
+      "chatId": -1002224964559,
+      "topicId": 19
+    },
+    {
+      "name": "JS",
+      "chatId": -1002224964559,
+      "topicId": 17
+    },
+    {
+      "name": "project_php",
+      "chatId": -1002165937339,
+      "topicId": 3
+    },
+    {
+      "name": "mysql_reference",
+      "chatId": -1002160968226,
+      "topicId": 2578
+    },
+    {
+      "name": "project_js",
+      "chatId": -1002165937339,
+      "topicId": 2
+    },
+    {
+      "name": "project_ts",
+      "chatId": -1002165937339,
+      "topicId": 5
+    },
+    {
+      "name": "project_bd",
+      "chatId": -1002165937339,
+      "topicId": 13
+    },
+    {
+      "name": "mysql_optimization",
+      "chatId": -1002160968226,
+      "topicId": 2581
+    },
+    {
+      "name": "php_composer",
+      "chatId": -1002160968226,
+      "topicId": 2608
+    },
+    {
+      "name": "mysql_indexes",
+      "chatId": -1002160968226,
+      "topicId": 2620
+    },
+    {
+      "name": "mysql_queryes",
+      "chatId": -1002160968226,
+      "topicId": 2641
+    },
+    {
+      "name": "JS",
+      "chatId": -1002204030075,
+      "topicId": 2
+    },
+    {
+      "name": "php",
+      "chatId": -1002160968226,
+      "topicId": 2655
+    },
+    {
+      "name": "php",
+      "chatId": -1002195152016,
+      "topicId": 13
+    },
+    {
+      "name": "js",
+      "chatId": -1002195152016,
+      "topicId": 14
+    },
+    {
+      "name": "part_1_basics_2",
+      "chatId": -1002204030075,
+      "topicId": 342
+    },
+    {
+      "name": "6_ecmascript_data_types_and_values",
+      "chatId": -1002204030075,
+      "topicId": 367
+    },
+    {
+      "name": "RegExp",
+      "chatId": -1002224964559,
+      "topicId": 56
+    },
+    {
+      "name": "Regexp",
+      "chatId": -1002204030075,
+      "topicId": 372
+    },
+    {
+      "name": "mysql",
+      "chatId": -1002165937339,
+      "topicId": 54
+    },
+    {
+      "name": "git",
+      "chatId": -1002165937339,
+      "topicId": 43
+    },
+    {
+      "name": "algoAndLogic",
+      "chatId": -1002165937339,
+      "topicId": 64
+    },
+    {
+      "name": "linux",
+      "chatId": -1002165937339,
+      "topicId": 34
+    },
+    {
+      "name": "linux",
+      "chatId": -1002229102964,
+      "topicId": 6
+    },
+    {
+      "name": "git",
+      "chatId": -1002229102964,
+      "topicId": 2
+    },
+    {
+      "name": "HTMLCSS",
+      "chatId": -1002165937339,
+      "topicId": 78
+    },
+    {
+      "name": "tickets",
+      "chatId": -1002165937339,
+      "topicId": 46
+    },
+    {
+      "name": "jquery",
+      "chatId": -1002195152016,
+      "topicId": 103
+    },
+    {
+      "name": "regexp",
+      "chatId": -1002195152016,
+      "topicId": 116
+    },
+    {
+      "name": "server",
+      "chatId": -1002195152016,
+      "topicId": 18
+    },
+    {
+      "name": "mdnTasks",
+      "chatId": -1002204030075,
+      "topicId": 398
+    },
+    {
+      "name": "part_1_3_code_quality",
+      "chatId": -1002204030075,
+      "topicId": 397
+    },
+    {
+      "name": "part_1_4_Objects_basics",
+      "chatId": -1002204030075,
+      "topicId": 455
+    },
+    {
+      "name": "Zend_validate",
+      "chatId": -1002240078476,
+      "topicId": 2
+    },
+    {
+      "name": "Zend_Form",
+      "chatId": -1002240078476,
+      "topicId": 25
+    },
+    {
+      "name": "project_zend",
+      "chatId": -1002165937339,
+      "topicId": 127
+    },
+    {
+      "name": "zend",
+      "chatId": -1002165937339,
+      "topicId": 130
+    },
+    {
+      "name": "part_1_5_data_types",
+      "chatId": -1002204030075,
+      "topicId": 555
+    },
+    {
+      "name": "algoTasks",
+      "chatId": -1002246208933,
+      "topicId": 5
+    },
+    {
+      "name": "general",
+      "chatId": -1002246208933,
+      "topicId": 23
+    },
+    {
+      "name": "TICKETS",
+      "chatId": -1002224964559,
+      "topicId": 59
+    },
+    {
+      "name": "mysql",
+      "chatId": -1002195152016,
+      "topicId": 150
+    },
+    {
+      "name": "db",
+      "chatId": -1002165937339,
+      "topicId": 133
+    },
+    {
+      "name": "part_1_6_advanced_work_with_functions_timeouts",
+      "chatId": -1002204030075,
+      "topicId": 819
+    },
+    {
+      "name": "getStarted",
+      "chatId": -1002223727791,
+      "topicId": 6
+    },
+    {
+      "name": "getstarted",
+      "chatId": -1002165937339,
+      "topicId": 138
+    },
+    {
+      "name": "project_angular",
+      "chatId": -1002165937339,
+      "topicId": 4
+    },
+    {
+      "name": "angular",
+      "chatId": -1002195152016,
+      "topicId": 19
+    },
+    {
+      "name": "angular",
+      "chatId": -1002165937339,
+      "topicId": 157
+    },
+    {
+      "name": "Zend_Db_Adapter",
+      "chatId": -1002240078476,
+      "topicId": 43
+    },
+    {
+      "name": "gettingstarted",
+      "chatId": -1002053226922,
+      "topicId": 2
+    },
+    {
+      "name": "Zend_MVC",
+      "chatId": -1002216482893,
+      "topicId": 2
+    },
+    {
+      "name": "Zend_Config_Ini",
+      "chatId": -1002216482893,
+      "topicId": 10
+    },
+    {
+      "name": "questions",
+      "chatId": -1002218170097,
+      "topicId": 3
+    },
+    {
+      "name": "Zend_Controller_Router_Route",
+      "chatId": -1002216482893,
+      "topicId": 23
+    },
+    {
+      "name": "devops",
+      "chatId": -1002226944790,
+      "topicId": 5
+    },
+    {
+      "name": "Zend_Controller_Dispatcher_Abstract",
+      "chatId": -1002216482893,
+      "topicId": 36
+    },
+    {
+      "name": "Zend_Controller_Router_Route_Regex",
+      "chatId": -1002216482893,
+      "topicId": 47
+    },
+    {
+      "name": "Zend_Application_Module_Bootstrap",
+      "chatId": -1002216482893,
+      "topicId": 52
+    },
+    {
+      "name": "Zend_Controller_Action",
+      "chatId": -1002216482893,
+      "topicId": 55
+    },
+    {
+      "name": "gettingstarted_tour-of-heroes",
+      "chatId": -1002053226922,
+      "topicId": 35
+    },
+    {
+      "name": "part_1_7_object_properties_and_their_configuration",
+      "chatId": -1002204030075,
+      "topicId": 926
+    },
+    {
+      "name": "scss",
+      "chatId": -1002199882350,
+      "topicId": 2
+    },
+    {
+      "name": "angular",
+      "chatId": -1002212810175,
+      "topicId": 2
+    },
+    {
+      "name": "linux",
+      "chatId": -1002166430242,
+      "topicId": 3
+    },
+    {
+      "name": "book_modern_php",
+      "chatId": -1002246009145,
+      "topicId": 4
+    },
+    {
+      "name": "Zend_Filter_StringTrim",
+      "chatId": -1002216482893,
+      "topicId": 58
+    },
+    {
+      "name": "R",
+      "chatId": -1002221967912,
+      "topicId": 2
+    },
+    {
+      "name": "js_learn_js_object_propertyes",
+      "chatId": -1002225594965,
+      "topicId": 2
+    },
+    {
+      "name": "git",
+      "chatId": -1002053226922,
+      "topicId": 102
+    },
+    {
+      "name": "js_learn_js_prototypes_inheritance",
+      "chatId": -1002225594965,
+      "topicId": 30
+    },
+    {
+      "name": "JS",
+      "chatId": -1002225594965,
+      "topicId": 39
+    },
+    {
+      "name": "js_learn_js_classes",
+      "chatId": -1002225594965,
+      "topicId": 84
+    },
+    {
+      "name": "PHP",
+      "chatId": -1002180906245,
+      "topicId": 2
+    },
+    {
+      "name": "js_2_learn_js_1_document",
+      "chatId": -1002225594965,
+      "topicId": 105
+    },
+    {
+      "name": "regexp",
+      "chatId": -1002221967912,
+      "topicId": 10
+    },
+    {
+      "name": "docker",
+      "chatId": -1002226944790,
+      "topicId": 13
+    },
+    {
+      "name": "phpstorm",
+      "chatId": -1002180906245,
+      "topicId": 34
+    },
+    {
+      "name": "Algoritms",
+      "chatId": -1002212810175,
+      "topicId": 7
+    },
+    {
+      "name": "sql",
+      "chatId": -1002199882350,
+      "topicId": 10
+    },
+    {
+      "name": "css",
+      "chatId": -1002245758976,
+      "topicId": 2
+    },
+    {
+      "name": "code-check",
+      "chatId": -1002245758976,
+      "topicId": 13
+    },
+    {
+      "name": "typescipt",
+      "chatId": -1002156798243,
+      "topicId": 11
+    },
+    {
+      "name": "todo",
+      "chatId": -1002156798243,
+      "topicId": 5
+    },
+    {
+      "name": "docker",
+      "chatId": -1002229102964,
+      "topicId": 28
+    },
+    {
+      "name": "js_1_learnjs_11_promises_and_async",
+      "chatId": -1002225594965,
+      "topicId": 249
+    },
+    {
+      "name": "html",
+      "chatId": -1002149306193,
+      "topicId": 6
+    },
+    {
+      "name": "English",
+      "chatId": -1002150199900,
+      "topicId": 3
+    },
+    {
+      "name": "ML",
+      "chatId": -1002165937339,
+      "topicId": 177
+    },
+    {
+      "name": "codegenerator",
+      "chatId": -1002165937339,
+      "topicId": 198
+    },
+    {
+      "name": "php",
+      "chatId": -1002165937339,
+      "topicId": 201
+    },
+    {
+      "name": "project_project",
+      "chatId": -1002165937339,
+      "topicId": 6
+    },
+    {
+      "name": "Access",
+      "chatId": -1002165937339,
+      "topicId": 206
+    },
+    {
+      "name": "js_1_learnjs_13_modules",
+      "chatId": -1002225594965,
+      "topicId": 314
+    },
+    {
+      "name": "js_2_learnjs_14_various",
+      "chatId": -1002225594965,
+      "topicId": 367
+    },
+    {
+      "name": "npm",
+      "chatId": -1002165937339,
+      "topicId": 215
+    },
+    {
+      "name": "my_js",
+      "chatId": -1002165937339,
+      "topicId": 218
+    },
+    {
+      "name": "Business",
+      "chatId": -1002246009145,
+      "topicId": 26
+    },
+    {
+      "name": "ts_flags",
+      "chatId": -1002156798243,
+      "topicId": 92
+    },
+    {
+      "name": "Zend_view",
+      "chatId": -1002216482893,
+      "topicId": 61
+    },
+    {
+      "name": "typescript_narrowing",
+      "chatId": -1002156798243,
+      "topicId": 133
+    },
+    {
+      "name": "databases",
+      "chatId": -1002226944790,
+      "topicId": 37
+    },
+    {
+      "name": "linux_user_administration",
+      "chatId": -1002166430242,
+      "topicId": 43
+    },
+    {
+      "name": "TS_MORE_ON_FUNCTIONS",
+      "chatId": -1002156798243,
+      "topicId": 170
+    },
+    {
+      "name": "typescript_object_types",
+      "chatId": -1002156798243,
+      "topicId": 219
+    },
+    {
+      "name": "mysql",
+      "chatId": -1002353609722,
+      "topicId": 2
+    },
+    {
+      "name": "practice",
+      "chatId": -1002180906245,
+      "topicId": 113
+    },
+    {
+      "name": "js_1_learnjs_basics",
+      "chatId": -1002225594965,
+      "topicId": 173
+    },
+    {
+      "name": "js_1_learnjs_10_errors",
+      "chatId": -1002225594965,
+      "topicId": 244
+    },
+    {
+      "name": "WebApi",
+      "chatId": -1002262278958,
+      "topicId": 6
+    },
+    {
+      "name": "dns",
+      "chatId": -1002226944790,
+      "topicId": 65
+    },
+    {
+      "name": "xdebug",
+      "chatId": -1002471651128,
+      "topicId": 2
+    },
+    {
+      "name": "pet",
+      "chatId": -1002180906245,
+      "topicId": 126
+    },
+    {
+      "name": "htaccess",
+      "chatId": -1002149306193,
+      "topicId": 21
+    },
+    {
+      "name": "php-packages",
+      "chatId": -1002180906245,
+      "topicId": 131
+    },
+    {
+      "name": "WEB",
+      "chatId": -1002262278958,
+      "topicId": 2
+    },
+    {
+      "name": "Logic",
+      "chatId": -1002166430242,
+      "topicId": 69
+    },
+    {
+      "name": "all",
+      "chatId": -1002165937339,
+      "topicId": 249
+    },
+    {
+      "name": "Ml",
+      "chatId": -1002353609722,
+      "topicId": 10
+    },
+    {
+      "name": "typescript_type_manipulations_generics",
+      "chatId": -1002156798243,
+      "topicId": 274
+    },
+    {
+      "name": "json",
+      "chatId": -1002225594965,
+      "topicId": 466
+    },
+    {
+      "name": "AI",
+      "chatId": -1002212810175,
+      "topicId": 63
+    },
+    {
+      "name": "selfdev_abbr",
+      "chatId": -1002199882350,
+      "topicId": 27
+    },
+    {
+      "name": "Logic_2",
+      "chatId": -1002166430242,
+      "topicId": 95
+    },
+    {
+      "name": "patterns",
+      "chatId": -1002180906245,
+      "topicId": 151
+    },
+    {
+      "name": "МыслиНаУтро",
+      "chatId": -1002387357255,
+      "topicId": 48
+    },
+    {
+      "name": "react",
+      "chatId": -1002221967912,
+      "topicId": 77
+    },
+    {
+      "name": "vuejs",
+      "chatId": -1002336872352,
+      "topicId": 4
+    },
+    {
+      "name": "pet_marketing",
+      "chatId": -1002180906245,
+      "topicId": 216
+    },
+    {
+      "name": "tsconfig",
+      "chatId": -1002165937339,
+      "topicId": 223
+    },
+    {
+      "name": "ts",
+      "chatId": -1002165937339,
+      "topicId": 271
+    },
+    {
+      "name": "requirejs",
+      "chatId": -1002221967912,
+      "topicId": 80
+    },
+    {
+      "name": "angular_services",
+      "chatId": -1002212810175,
+      "topicId": 75
+    },
+    {
+      "name": "angular_scope",
+      "chatId": -1002212810175,
+      "topicId": 82
+    },
+    {
+      "name": "angular_methods",
+      "chatId": -1002212810175,
+      "topicId": 87
+    },
+    {
+      "name": "angular_dependency_injection",
+      "chatId": -1002212810175,
+      "topicId": 120
+    },
+    {
+      "name": "FAQ",
+      "chatId": -1002165937339,
+      "topicId": 279
+    },
+    {
+      "name": "angular_interpolation",
+      "chatId": -1002212810175,
+      "topicId": 145
+    },
+    {
+      "name": "angular_filters",
+      "chatId": -1002212810175,
+      "topicId": 147
+    },
+    {
+      "name": "angular_q",
+      "chatId": -1002212810175,
+      "topicId": 137
+    },
+    {
+      "name": "angular_forms",
+      "chatId": -1002212810175,
+      "topicId": 168
+    },
+    {
+      "name": "js_tables",
+      "chatId": -1002225594965,
+      "topicId": 499
+    },
+    {
+      "name": "php_functions",
+      "chatId": -1002180906245,
+      "topicId": 250
+    },
+    {
+      "name": "Книги_Бизнес_с_нуля_эрик_рис",
+      "chatId": -1002348741074,
+      "topicId": 8
+    },
+    {
+      "name": "Wireguard",
+      "chatId": -1002262278958,
+      "topicId": 38
+    },
+    {
+      "name": "oop",
+      "chatId": -1002403849841,
+      "topicId": 2
+    },
+    {
+      "name": "Книга_блиц_масштабирование",
+      "chatId": -1002348741074,
+      "topicId": 86
+    },
+    {
+      "name": "Книга_думай_медленно_решай_быстро",
+      "chatId": -1002348741074,
+      "topicId": 108
+    },
+    {
+      "name": "Кино",
+      "chatId": -1002348741074,
+      "topicId": 2
+    },
+    {
+      "name": "Мемы",
+      "chatId": -1002387357255,
+      "topicId": 53
+    },
+    {
+      "name": "Книга_оливия_харизма",
+      "chatId": -1002348741074,
+      "topicId": 232
+    },
+    {
+      "name": "scum_time",
+      "chatId": -1002165937339,
+      "topicId": 320
+    },
+    {
+      "name": "ОТЧЕНАШ",
+      "chatId": -1002165937339,
+      "topicId": 308
+    },
+    {
+      "name": "Mysql_stored",
+      "chatId": -1002353609722,
+      "topicId": 39
+    },
+    {
+      "name": "Мои задачи",
+      "chatId": -1002165937339,
+      "topicId": 327
+    },
+    {
+      "name": "Книга_зандастра",
+      "chatId": -1002348741074,
+      "topicId": 266
+    },
+    {
+      "name": "Zend_registry",
+      "chatId": -1002216482893,
+      "topicId": 82
+    },
+    {
+      "name": "Курсы_умлевелон",
+      "chatId": -1002348741074,
+      "topicId": 298
+    },
+    {
+      "name": "Фишки_кода_в_проекте",
+      "chatId": -1002165937339,
+      "topicId": 332
+    },
+    {
+      "name": "Мудрость",
+      "chatId": -1002387357255,
+      "topicId": 68
+    },
+    {
+      "name": "Книги",
+      "chatId": -1002348741074,
+      "topicId": 333
+    },
+    {
+      "name": "networks",
+      "chatId": -1002475339952,
+      "topicId": 6
+    },
+    {
+      "name": "ГородПамяти",
+      "chatId": -1002277170738,
+      "topicId": 8
+    },
+    {
+      "name": "Поток_психология_оптимального переживания",
+      "chatId": -1002348741074,
+      "topicId": 347
+    },
+    {
+      "name": "CSS-flex",
+      "chatId": -1002165937339,
+      "topicId": 340
+    },
+    {
+      "name": "МедитацияПлюсМузыка",
+      "chatId": -1002387357255,
+      "topicId": 28
+    },
+    {
+      "name": "Angular_digest",
+      "chatId": -1002212810175,
+      "topicId": 211
+    },
+    {
+      "name": "Думай_как_математик",
+      "chatId": -1002348741074,
+      "topicId": 369
+    },
+    {
+      "name": "Карьера",
+      "chatId": -1002348741074,
+      "topicId": 383
+    },
+    {
+      "name": "VibeCoding",
+      "chatId": -1002336872352,
+      "topicId": 63
+    },
+    {
+      "name": "ИсскуствоУправленияМиром",
+      "chatId": -1002348741074,
+      "topicId": 391
+    },
+    {
+      "name": "anki_backups",
+      "chatId": -1002212810175,
+      "topicId": 214
+    },
+    {
+      "name": "Книга_ИсскуствоИгрыСмиром",
+      "chatId": -1002348741074,
+      "topicId": 461
+    },
+    {
+      "name": "Мемантин",
+      "chatId": -1002387357255,
+      "topicId": 75
+    },
+    {
+      "name": "DataStructures",
+      "chatId": -1002226944790,
+      "topicId": 104
+    },
+    {
+      "name": "Книга_темнаяПсихология",
+      "chatId": -1002348741074,
+      "topicId": 811
+    },
+    {
+      "name": "dating",
+      "chatId": -1002226944790,
+      "topicId": 106
+    },
+    {
+      "name": "Мышление",
+      "chatId": -1002387357255,
+      "topicId": 79
+    },
+    {
+      "name": "Машина",
+      "chatId": -1002387357255,
+      "topicId": 90
+    },
+    {
+      "name": "Мотивация",
+      "chatId": -1002387357255,
+      "topicId": 93
+    },
+    {
+      "name": "График_стульев",
+      "chatId": -1002277170738,
+      "topicId": 50
+    },
+    {
+      "name": "Майндсет",
+      "chatId": -1002387357255,
+      "topicId": 100
+    },
+    {
+      "name": "Кето",
+      "chatId": -1002348741074,
+      "topicId": 823
+    },
+    {
+      "name": "Массаж",
+      "chatId": -1002387357255,
+      "topicId": 107
+    },
+    {
+      "name": "Массаж+1",
+      "chatId": -1002387357255,
+      "topicId": 127
+    },
+    {
+      "name": "Когнетивные_искажения",
+      "chatId": -1002348741074,
+      "topicId": 375
+    },
+    {
+      "name": "Квартира_подольск_ремонт",
+      "chatId": -1002348741074,
+      "topicId": 846
+    }
+  ]
+}

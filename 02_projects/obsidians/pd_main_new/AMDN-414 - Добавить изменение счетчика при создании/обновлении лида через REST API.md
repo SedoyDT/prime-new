@@ -1,0 +1,1 @@
+Добавить икремент счетчика коммуникаций в \App\RestAPI\Module\SalesFunnel\Lead\Service\LeadService.

@@ -1,0 +1,626 @@
+diff --git a/application/modules/call/models/Missed/Filter.php b/application/modules/call/models/Missed/Filter.php
+index 2d07627697..c7ab04d3f2 100644
+--- a/application/modules/call/models/Missed/Filter.php
++++ b/application/modules/call/models/Missed/Filter.php
+@@ -34,10 +34,6 @@ class Call_Model_Missed_Filter extends Filter
+         $this->addDecorator($managerDecorator);
+ 
+         $whereDecorator = new DefaultWhereConditionsDecorator();
+-        $whereDecorator->getWhereConditionsInner()->add("crm.callback_status_id IN ("
+-            . App_Constant_Table_CallRegistryMissedCallbackStatus::CLIENT . ","
+-            . App_Constant_Table_CallRegistryMissedCallbackStatus::DELAYED .
+-        ")");
+         switch ($this->showViewed()) {
+             case true:
+                 $whereDecorator->getWhereConditionsInner()->add("call_registry_missed_call_view.id IS NOT NULL");
+@@ -52,46 +48,7 @@ class Call_Model_Missed_Filter extends Filter
+             foreach ($result as &$row) {
+                 // проверка наличия перезвона
+                 if (App_Access::get('access', 'call>missed_calls>show_call_back')) {
+-                    $callBackExists = App_Db::get()->query("                
+-                        SELECT inner_cr.id
+-                        FROM call_registry AS inner_cr
+-                        INNER JOIN `call_registry_phones` AS inner_crp
+-                        ON inner_cr.id = inner_crp.registry_id            
+-                        WHERE inner_crp.phone = :phone AND
+-                            inner_cr.direction = " . App_Constant_Table_CallRegistryDirections::OUT . " AND
+-                            inner_cr.record_status IN (" . implode(",", self::ALLOWED_RECORD_STATUS) . ") AND 
+-                            inner_cr.date >= :call_date AND
+-                            DATEDIFF(inner_cr.date, :call_date) - (
+-                                SELECT COUNT(id) AS _
+-                                FROM calendar_date_options
+-                                WHERE sql_date BETWEEN :call_date AND inner_cr.date 
+-                            ) <= " . self::MAX_CALLBACK_DAYS . "                
+-                    ", [
+-                        'phone' => $row->call_phone,
+-                        'call_date' => $row->call_date
+-                    ])->fetch(Zend_Db::FETCH_COLUMN);
+-                    $row->call_back_exists = $callBackExists;
+-
+-                    $clientCalledAgain = App_Db::get()->query("                
+-                        SELECT inner_cr.id
+-                        FROM call_registry AS inner_cr
+-                        INNER JOIN `call_registry_phones` AS inner_crp
+-                        ON inner_cr.id = inner_crp.registry_id            
+-                        WHERE inner_crp.phone = :phone AND
+-                            inner_cr.direction = " . App_Constant_Table_CallRegistryDirections::IN . " AND
+-                            inner_cr.record_status IN (" . implode(",", self::ALLOWED_RECORD_STATUS) . ") AND 
+-                            inner_cr.date >= :call_date AND
+-                            DATEDIFF(inner_cr.date, :call_date) - (
+-                                SELECT COUNT(id) AS _
+-                                FROM calendar_date_options
+-                                WHERE sql_date BETWEEN :call_date AND inner_cr.date 
+-                            ) <= " . self::MAX_CALLBACK_DAYS . "                
+-                    ", [
+-                        'phone' => $row->call_phone,
+-                        'call_date' => $row->call_date
+-                    ])->fetch(Zend_Db::FETCH_COLUMN);
+-                    $row->client_called_again = $clientCalledAgain;
+-
++                    // TODO
+                     $row->color = 'FF0000';
+                     $row->excelColor = 'f7d0d0';
+                     $row->colorTitle = 'перезвона нет';
+@@ -135,11 +92,11 @@ class Call_Model_Missed_Filter extends Filter
+     {
+         $sql = "
+             SELECT
+-                crm.call_registry_id AS id,
++                crm.id AS id,
+                 crm.call_registry_id,
+                 crm.called_at AS call_date,
+                 DATE_FORMAT(crm.called_at, '%H:%i %d.%m.%Y') AS call_date_formatted,
+-                call_registry_phones.`phone` AS call_phone,
++                crm.client_phone_formatted AS call_phone,
+                 call_registry_phones.id AS call_phone_id,
+                 call_registry_client.client_id AS client_id,
+                 crm.user_phone_formatted AS manager_phone,
+diff --git a/application/modules/call/models/Missed/FilterConfigurator.php b/application/modules/call/models/Missed/FilterConfigurator.php
+index b71b8e84b7..bb489f4ef8 100644
+--- a/application/modules/call/models/Missed/FilterConfigurator.php
++++ b/application/modules/call/models/Missed/FilterConfigurator.php
+@@ -57,15 +57,12 @@ class Call_Model_Missed_FilterConfigurator
+             ->setCaption('полное название клиента')
+             ->setFilterType('integer')
+             ->setOptions("
+-                SELECT DISTINCT 
+-                    clients.id AS v,
+-                    clients.u_title AS t
+-                FROM clients
+-                INNER JOIN call_registry_client
+-                ON clients.id = call_registry_client.client_id
+-                LEFT JOIN call_registry_missed ON 
+-                   call_registry_client.registry_id = call_registry_missed.call_registry_id AND
+-                   call_registry_missed.id IS NULL
++                SELECT DISTINCT
++                    c.id AS v,
++                    c.u_title AS t
++                FROM clients AS c
++                LEFT JOIN client_phone AS cp ON
++                    c.id = cp.client_id
+                 ORDER BY t ASC
+             ")
+         );
+@@ -137,6 +134,20 @@ class Call_Model_Missed_FilterConfigurator
+                 ")
+             );
+         }
++
++        if ($filter->showViewed()) {
++            $config->add((new App_Filter_Component_Config())
++                ->setFieldName('reason_hash')
++                ->setCaption('причина')
++                ->setFilterType('select')
++                ->setOptions("
++                    SELECT DISTINCT
++                        call_registry_missed_call_view.reason_hash AS v,
++                        call_registry_missed_call_view.reason AS t
++                    FROM call_registry_missed_call_view                    
++                ")
++            );
++        }
+     }
+ 
+     /**
+diff --git a/library/App/Call/ConsoleCommands/CreateFakeCall.php b/library/App/Call/ConsoleCommands/CreateFakeCall.php
+index b19366cd8f..5c00c567f4 100644
+--- a/library/App/Call/ConsoleCommands/CreateFakeCall.php
++++ b/library/App/Call/ConsoleCommands/CreateFakeCall.php
+@@ -51,7 +51,7 @@ class CreateFakeCall extends Command
+         $this->addOption("duration",  "d", InputArgument::OPTIONAL, "Длительность", 100);
+         $this->addOption("callId",    "c", InputArgument::OPTIONAL, "ID из Мегафона", $this->uniqInt());
+         $this->addOption("uuid",      "u", InputArgument::OPTIONAL, "Уникальный ID из проекта АТС", $this->generateUUID());
+-        $this->addOption("status",    "s", InputArgument::OPTIONAL, "Статус звонка 1 - нормальный", 1);
++        $this->addOption("status",    "s", InputArgument::OPTIONAL, "Статус звонка 1 - нормальный, 2 - пропущенный, 3 - ", 1);
+ 
+         $this->setDescription("Создает запись о звонке [call:create-fake-call 0 70000000000 70000000000 0]");
+     }
+@@ -93,7 +93,9 @@ class CreateFakeCall extends Command
+                 "duration"                    => $params['duration'],     // Продолжительность звонка в секундах
+                 "callid"                      => $params['callId'],       // Уникальный id, генерируемый мегафоном int
+                 "link"                        => "",                      //
+-                "status"                      => $params['status'],       // Статус звонка,1 - обычный, 2 - пропущен и тд
++
++                // Статус звонка,1 - Успешен, 2 - Пропущен, 3 - Занято, 4- абонент не доступен, 5- звокни на это напраление запрещены и тд
++                "status"                      => $params['status'],
+                 "global_data_user_project_id" => 0,                       //
+                 "file_path"                   => "",                      //
+                 "sended_to_project"           => 1,                       //
+diff --git a/library/App/Call/Services/MissedCallService.php b/library/App/Call/Services/MissedCallService.php
+index 4398e52dbe..ba2828f965 100644
+--- a/library/App/Call/Services/MissedCallService.php
++++ b/library/App/Call/Services/MissedCallService.php
+@@ -9,12 +9,14 @@
+ 
+ namespace App\Call\Services;
+ 
++use App\Event\MissedCall\Type\MissedCallAdded;
+ use App_Constant_Call_RecordStatus;
+ use App_Constant_Table_CallRegistryDirections;
+ use App_Db;
+ use Zend_Db;
+ 
+-class MissedCallService {
++class MissedCallService
++{
+ 
+     /**
+      * разрешённые статусы записей
+@@ -35,7 +37,7 @@ class MissedCallService {
+      * @return void
+      * @throws \Zend_Db_Statement_Exception
+      */
+-    public function determiningCallBackStatus($event)
++    public function determiningCallBackStatus(\App\Event\Call\Type\Add $event)
+     {
+         $model = new \Call_Model_Registry($event->getSubject()->registryId);
+ 
+@@ -45,8 +47,8 @@ class MissedCallService {
+             INNER JOIN `call_registry_phones` AS inner_crp
+             ON inner_cr.id = inner_crp.registry_id            
+             WHERE inner_crp.phone = :phone AND
+-                inner_cr.direction = " . App_Constant_Table_CallRegistryDirections::IN . " AND
+-                inner_cr.record_status IN (" . implode(",", self::ALLOWED_RECORD_STATUS) . ") AND 
++                inner_cr.direction = 1 AND
++                inner_cr.record_status IN (1,2) AND 
+                 inner_cr.date >= :call_date AND
+                 DATEDIFF(inner_cr.date, :call_date) - (
+                     SELECT COUNT(id)
+diff --git a/library/App/Event/MissedCall/Subject.php b/library/App/Event/MissedCall/Subject.php
+index fffa17ccde..97d626f322 100644
+--- a/library/App/Event/MissedCall/Subject.php
++++ b/library/App/Event/MissedCall/Subject.php
+@@ -14,6 +14,7 @@ namespace App\Event\MissedCall;
+ 
+ use App\Event\BaseSubject;
+ 
++
+ class Subject extends BaseSubject
+ {
+ 
+@@ -32,6 +33,11 @@ class Subject extends BaseSubject
+      */
+     public $atsCallId;
+ 
++    /**
++     * @var int | null
++     */
++    public $missedCallId;
++
+     /**
+      * @param string|null $atsCallId
+      * @return Subject
+@@ -59,4 +65,38 @@ class Subject extends BaseSubject
+         $this->missedCallId = $missedCallId;
+         return $this;
+     }
++
++    /**
++     * @return int|null
++     */
++    public function getRegistryId(): ?int
++    {
++        return $this->registryId;
++    }
++
++    /**
++     * @param int|null $registryId
++     * @return void
++     */
++    public function setRegistryId(?int $registryId): void
++    {
++        $this->registryId = $registryId;
++    }
++
++    /**
++     * @return string|null
++     */
++    public function getAtsRecordUuid(): ?string
++    {
++        return $this->atsRecordUuid;
++    }
++
++    /**
++     * @param string|null $atsRecordUuid
++     * @return void
++     */
++    public function setAtsRecordUuid(?string $atsRecordUuid): void
++    {
++        $this->atsRecordUuid = $atsRecordUuid;
++    }
+ }
+\ No newline at end of file
+diff --git a/library/App/Event/MissedCall/Type/MissedCallAdded.php b/library/App/Event/MissedCall/Type/MissedCallAdded.php
+index 83622f4cba..d6401e6a80 100644
+--- a/library/App/Event/MissedCall/Type/MissedCallAdded.php
++++ b/library/App/Event/MissedCall/Type/MissedCallAdded.php
+@@ -10,8 +10,24 @@ namespace App\Event\MissedCall\Type;
+ 
+ 
+ use App\Event\BaseEvent;
++use App\Event\MissedCall\Subject;
+ 
+ class MissedCallAdded extends BaseEvent
+ {
++    public function __construct(?Subject $subject)
++    {
++        if (!($subject instanceof Subject)) {
++            throw new \InvalidArgumentException('Неправильный тип субъекта события');
++        }
+ 
++        parent::__construct($subject);
++    }
++
++    /**
++     * @return \App\Event\BaseSubject|null
++     */
++    public function getSubject()
++    {
++        return parent::getSubject();
++    }
+ }
+\ No newline at end of file
+diff --git a/library/App/Event/MissedCall/Type/MissedCallDeleted.php b/library/App/Event/MissedCall/Type/MissedCallDeleted.php
+index f23f8fb8f3..5c4e51cde7 100644
+--- a/library/App/Event/MissedCall/Type/MissedCallDeleted.php
++++ b/library/App/Event/MissedCall/Type/MissedCallDeleted.php
+@@ -6,11 +6,29 @@
+  * @date 11.09.2025
+  * @copyright Copyright (c) ООО "ПИАР СИТИ" project AMDSolution
+  */
++
+ namespace App\Event\MissedCall\Type;
+ 
+ 
+-use App\Event\Call\Type\BaseEvent;
++use App\Event\BaseEvent;
++use App\Event\MissedCall\Subject;
+ 
+ class MissedCallDeleted extends BaseEvent
+ {
++    public function __construct(?Subject $subject)
++    {
++        if (!($subject instanceof Subject)) {
++            throw new \InvalidArgumentException('Неправильный тип субъекта события');
++        }
++
++        parent::__construct($subject);
++    }
++
++    /**
++     * @return \App\Event\BaseSubject|null
++     */
++    public function getSubject()
++    {
++        return parent::getSubject();
++    }
+ }
+\ No newline at end of file
+diff --git a/library/App/Filter/Component/Behaviour/Result.php b/library/App/Filter/Component/Behaviour/Result.php
+index 91f1707b50..f072d43f34 100644
+--- a/library/App/Filter/Component/Behaviour/Result.php
++++ b/library/App/Filter/Component/Behaviour/Result.php
+@@ -55,6 +55,8 @@ class App_Filter_Component_Behaviour_Result extends Behaviour
+         }
+ 
+         $sqlQueryForResult = $sqlFormatter->format('result', $filter->getResultSqlQuery());
++//        echo "<pre>" . print_r($sqlQueryForResult, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
+         $sqlQueryForCount  = $sqlFormatter->format('count', $filter->getResultSqlQuery());
+         
+         $sqlQueryCount = $filter->getResultCountSqlQuery();
+diff --git a/library/App/Network/Service/Ats/Call/Reciever.php b/library/App/Network/Service/Ats/Call/Reciever.php
+index d29e7dee8b..348e0e1bae 100644
+--- a/library/App/Network/Service/Ats/Call/Reciever.php
++++ b/library/App/Network/Service/Ats/Call/Reciever.php
+@@ -246,6 +246,7 @@ class App_Network_Service_Ats_Call_Reciever extends App_Network_Reciever_Abstrac
+         $missedCall->setAtsRecordUuid($record->getEntity()->getUuid());
+         $missedCall->setCallbackStatusId(1);
+         $missedCall->setUserPhone($record->getEntity()->getDiversion());
++        $missedCall->setIsAdvertising(App_Db_CallDepartmentPhones::obtain()->isAdvertising($record->getEntity()->getDiversion()));
+         $this->missedCallRepository->save($missedCall);
+ 
+         \App\Service\EventService::getInstance()->trigger(
+diff --git a/library/App/SalesFunnel/EventSubscriber/CallEventSubscriber.php b/library/App/SalesFunnel/EventSubscriber/CallEventSubscriber.php
+index 502eadee4f..87bbe6387e 100644
+--- a/library/App/SalesFunnel/EventSubscriber/CallEventSubscriber.php
++++ b/library/App/SalesFunnel/EventSubscriber/CallEventSubscriber.php
+@@ -120,8 +120,7 @@ class CallEventSubscriber extends CurrentProjectEventSubscriber
+     {
+         return [
+             \App\Event\Call\Type\Add::class => [
+-                ['createLeadFromCall', 0],
+-                ['updateMissedCallStatuses', 0],
++                ['createLeadFromCall', 0]
+             ],
+             \App\Event\Call\Type\NoteUpdate::class => [
+                 ['updateLeadCommentFromCall', 0],
+@@ -280,7 +279,7 @@ class CallEventSubscriber extends CurrentProjectEventSubscriber
+      * @param $event
+      * @return void
+      */
+-    public function updateMissedCallStatuses($event)
++    public function updateMissedCallStatuses(\App\Event\Call\Type\Add $event)
+     {
+         $missedCallService = new MissedCallService();
+         $missedCallService->determiningCallBackStatus($event);
+diff --git a/library/App/Service/EventService.php b/library/App/Service/EventService.php
+index 74fb5bf400..721312c6bf 100644
+--- a/library/App/Service/EventService.php
++++ b/library/App/Service/EventService.php
+@@ -27,6 +27,7 @@ use App\GlobalProject\EventSubscriber\InvoiceSubscriber;
+ use App\GlobalProject\EventSubscriber\JudicialSubscriber;
+ use App\GlobalProject\EventSubscriber\UserSubscriber;
+ use App\SalesFunnel\EventSubscriber as SalesFunnelSubscribers;
++use App\Call\EventSubscriber AS CallSubscribers;
+ use App\SalesFunnel\Settings\AutomatizationSettings;
+ use App\SalesFunnel\Settings\LeadRelationSettings;
+ use App\Tasks\StaffTasks\EventSubscriber\StaffTasksEventSubscriber;
+@@ -178,6 +179,7 @@ class EventService
+             $subscribers = [
+                 SalesFunnelSubscribers\CallEventSubscriber::class,
+                 SalesFunnelSubscribers\ClientEventSubscriber::class,
++                CallSubscribers\MissedCallEventSubscriber::class,
+                 SalesFunnelSubscribers\CashEventSubscriber::class,
+                 SalesFunnelSubscribers\InvoiceEventSubscriber::class,
+                 SalesFunnelSubscribers\LogEventSubscriber::class,
+diff --git a/protected/scripts/AMDN-179.php b/protected/scripts/AMDN-179.php
+index 0321f005d2..56885da80c 100644
+--- a/protected/scripts/AMDN-179.php
++++ b/protected/scripts/AMDN-179.php
+@@ -8,22 +8,9 @@
+  */
+ require_once __DIR__ . "/../application.php";
+ 
+-$transferQuery = "
+-    INSERT INTO call_registry_missed (
+-        called_at,
+-        manager_id,
+-        client_phone,
+-        user_phone,
+-        duration,
+-        ats_record_uuid,
+-        is_advertising,
+-        advertising_platform_id,
+-        callback_status_id,
+-        call_registry_id,
+-        user_phone_formatted,
+-        client_phone_formatted
+-    )
++$getMissedCallsForTransfer = "
+     SELECT
++        cr.id,
+         cr.`date`,
+         cr.manager,
+         crp.phone_int,
+@@ -32,36 +19,92 @@ $transferQuery = "
+         cr.ats_record_uuid,
+         cr.is_advertising,
+         cr.advertising_platform_id,
+-        1,
+-        cr.id,
+         cr.manager_phone,
+         crp.phone
+-    
+     FROM call_registry AS cr
+     JOIN call_registry_phones AS crp ON
+         crp.registry_id = cr.id
+-    LEFT JOIN call_registry_missed m ON
+-        m.call_registry_id = cr.id
+-    LEFT JOIN call_registry_mi
+-    WHERE cr.record_status = 6
+-        AND m.call_registry_id IS NULL
+-    ON DUPLICATE KEY UPDATE
+-        called_at = VALUES(called_at),
+-        manager_id = VALUES(manager_id),
+-        client_phone = VALUES(client_phone),
+-        user_phone = VALUES(user_phone),
+-        duration = VALUES(duration),
+-        ats_record_uuid = VALUES(ats_record_uuid);
++    WHERE cr.record_status = 6 AND
++        crp.phone IS NOT NULL AND
++        crp.fixed = 1
+ ";
+ 
+-App_Db::get()->query($transferQuery);
++$dataToTransfer = App_Db::get()->query($getMissedCallsForTransfer)->fetchAll();
+ 
+-$clientPhones = App_Db_CallRegistryMissed::obtain()->getRows(1);
++App_Db::get()->beginTransaction();
++foreach ($dataToTransfer AS $unit) {
++//    $e164Phone = null;
++//    if (!empty($unit->phone)) {
++//        try {
++//            $e164Phone = App_Helper_Phone::getE164Phone($unit->phone);
++//        } catch (\Exception $e) {}
++//    }
++//    $missedCallId = App_Db_CallRegistryMissed::obtain()->insert([
++//        'called_at' => $unit->date,
++//        'manager_id' => $unit->manager,
++//        'client_phone' => $e164Phone,
++//        'user_phone' => $unit->manager_phone_e164,
++//        'user_phone_formatted' => $unit->manager_phone,
++//        'duration' => $unit->duration,
++//        'ats_record_uuid' => $unit->ats_record_uuid,
++//        'is_advertising' => $unit->is_advertising,
++//        'advertising_platform_id' => $unit->advertising_platform_id,
++//        'client_phone_formatted' => $unit->phone,
++//        'callback_status_id' => 1
++//    ]);
++//    App_Db_CallRegistryMissedCallView::obtain()->update([
++//        'missed_call_id' => $missedCallId
++//    ], [
++//        'registry_id = ?' => $unit->id
++//    ]);
++}
+ 
+-foreach ($clientPhones AS $phone) {
+-    $id = $phone['id'];
+-    $phone['client_phone'] = App_Helper_Phone::getE164Phone($phone['client_phone_formatted']);
++$callRegistryMissed = App_Db_CallRegistryMissed::obtain()->getRows();
++
++$sql = "
++SELECT 
++    inner_cr.id, 
++    inner_cr.date, 
++    inner_cr.direction,
++    inner_cr.ats_record_uuid
++FROM call_registry AS inner_cr
++INNER JOIN `call_registry_phones` AS inner_crp ON
++    inner_cr.id = inner_crp.registry_id
++WHERE inner_crp.phone = :phone AND
++    inner_cr.direction IN (1,2) AND 
++    inner_cr.record_status IN (1,2) AND
++    inner_cr.date >= :call_date AND
++    DATEDIFF(inner_cr.date, :call_date) - (
++        SELECT COUNT(id)
++        FROM calendar_date_options
++        WHERE sql_date BETWEEN :call_date AND inner_cr.date
++    ) <= 5
++ORDER BY inner_cr.date ASC
++LIMIT 1;
++";
+ 
+-    App_Db_CallRegistryMissed::obtain()->update($phone, ['id = ?' => $id]);
++foreach ($callRegistryMissed as $missed) {
++    $callBack = App_Db::get()->query($sql, ['phone' => $missed['client_phone_formatted'], 'call_date' => $missed['called_at']])->fetchAll(Zend_Db::FETCH_ASSOC);
++    if (isset($callBack[0]['direction']) && $callBack[0]['direction'] == 2) {
++//        echo "<pre>" . print_r($missed, true); echo "</pre>"; // FrolovDEBUG
++//        echo "<pre>" . print_r($callBack, true); echo "</pre>"; // FrolovDEBUG
++//        exit();
++        $callbackDate = (DateTimeImmutable::createFromFormat(MYSQL_DATETIME_FORMAT, $callBack[0]['date']));
++        $missedCallDate = (DateTimeImmutable::createFromFormat(MYSQL_DATETIME_FORMAT, $missed['called_at']));
++        if (($missedCallDate->format('Y-m-d') === $callbackDate->format('Y-m-d'))) {
++            $missed['callback_status_id'] = \App_Constant_Table_CallRegistryMissedCallbackStatus::SAME_DAY;
++        } else {
++            $missed['callback_status_id'] = \App_Constant_Table_CallRegistryMissedCallbackStatus::DELAYED;
++        }
++        App_Db_CallRegistryMissed::obtain()->update(['callback_status_id' => $missed['callback_status_id']], ['id = ?' => $missed['id']]);
++    } else if (isset($callBack[0]['direction']) && $callBack[0]['direction'] == 1) {
++        $missed['callback_status_id'] = \App_Constant_Table_CallRegistryMissedCallbackStatus::CLIENT;
++        App_Db_CallRegistryMissed::obtain()->update(['callback_status_id' => $missed['callback_status_id']], ['id = ?' => $missed['id']]);
++    }
+ }
++//foreach ($dataToTransfer AS $unit) {
++//    App_Db::get()->query('DELETE FROM call_registry WHERE id = :id', ['id' => $unit->id]);
++//    App_Db::get()->query('DELETE FROM call_registry_phones WHERE registry_id = :id', ['id' => $unit->id]);
++//}
++App_Db::get()->commit();
+ 
+diff --git a/query/AMDN-179.sql b/query/AMDN-179.sql
+index dea184f247..905dc747a3 100644
+--- a/query/AMDN-179.sql
++++ b/query/AMDN-179.sql
+@@ -2,3 +2,45 @@ INSERT INTO sales_funnel_lead_relation_type (id, `key`, title) VALUES (19, 'miss
+ 
+ INSERT INTO sales_funnel_stage_trigger_event (id, event, title) VALUES (30, '\\App\\Event\\MissedCall\\Type\\MissedCallAdded', 'Добавление пропущенного звонка');
+ 
++CREATE TABLE call_registry_missed_callback_status(
++    `id` tinyint unsigned primary key,
++    `title` varchar(100),
++    `alias` varchar(100)
++) comment='контроль звонков: статус перезвонов по пропущенным звонкам';
++
++INSERT INTO call_registry_missed_callback_status(id, title, alias) values
++    (1, 'нет перезвона', 'none'),
++    (2, 'клиент перезвонил', 'client'),
++    (3, 'менеджер перезвонил', 'delayed'),
++    (4, 'перезвон в тот же день', 'same_day');
++
++DROP TABLE IF EXISTS call_registry_missed;
++CREATE TABLE call_registry_missed (
++        id serial auto_increment primary key, --
++        called_at datetime comment 'дата и время звонка',
++        manager_id int comment 'id менеджера, к которому относится звонок',
++        client_phone char(20) comment 'клиентский телефон в формате e164',
++        client_phone_formatted char(20) comment 'клиентский телефон в формате ',
++        user_phone char(20) comment 'телефон пользователя в формате e164',
++        user_phone_formatted char(20) comment 'телефон пользователя в формате',
++        duration int unsigned comment 'продолжительность',
++        ats_record_uuid char(36) comment 'uuid записи на проекте атс',
++        is_advertising bool comment 'флаг звонка по нашей рекламе',
++        advertising_platform_id int comment 'id рекламной площадки',
++        callback_status_id tinyint unsigned comment 'id статуса перезвона из call_registry_missed_callback_status',
++
++        unique(ats_record_uuid),
++        index(called_at),
++        index(manager_id),
++        index(client_phone),
++        index(user_phone),
++        index(callback_status_id),
++
++        constraint call_registry_missed_ifbk2 FOREIGN KEY(callback_status_id)
++        REFERENCES call_registry_missed_callback_status(id)
++        on update cascade on delete set null
++) comment='контроль звонков: пропущенные звонки';
++
++
++ALTER TABLE call_registry_missed_call_view
++    ADD missed_call_id int null comment 'id пропущенного звонка из таблицы call_registry_missed';
+diff --git a/query/AMDN-313.sql b/query/AMDN-313.sql
+deleted file mode 100644
+index a7ba9b34bb..0000000000
+--- a/query/AMDN-313.sql
++++ /dev/null
+@@ -1,40 +0,0 @@
+-CREATE TABLE call_registry_missed_callback_status(
+-     `id` tinyint unsigned primary key,
+-     `title` varchar(100),
+-     `alias` varchar(100)
+-) comment='контроль звонков: статус перезвонов по пропущенным звонкам';
+-
+-INSERT INTO call_registry_missed_callback_status(id, title, alias) values
+-   (1, 'нет перезвона', 'none'),
+-   (2, 'клиент перезвонил', 'client'),
+-   (3, 'менеджер перезвонил', 'delayed'),
+-   (4, 'перезвон в тот же день', 'same_day');
+-
+-DROP TABLE IF EXISTS call_registry_missed;
+-CREATE TABLE call_registry_missed (
+-    id serial auto_increment primary key, --
+-    called_at datetime comment 'дата и время звонка', -- date
+-    manager_id int comment 'id менеджера, к которому относится звонок', -- manager из call_registry
+-    client_phone char(20) comment 'клиентский телефон в формате e164', -- _ext_ats_call_history
+-    client_phone_formatted char(20) comment 'клиентский телефон в формате ', -- _ext_ats_call_history
+-    user_phone char(20) comment 'телефон пользователя в формате e164', -- manager_phone_e164 - call_registry
+-    user_phone_formatted char(20) comment 'телефон пользователя в формате', -- manager_phone_e164 - call_registry
+-    duration int unsigned comment 'продолжительность', -- call_registry
+-    ats_record_uuid char(36) comment 'uuid записи на проекте атс', -- ext_ats_call_history
+-    is_advertising bool comment 'флаг звонка по нашей рекламе', -- call_registry
+-    advertising_platform_id int comment 'id рекламной площадки', -- call_registry
+-    callback_status_id tinyint unsigned comment 'id статуса перезвона из call_registry_missed_callback_status', -- заполняется отдельно ?
+-    call_registry_id int comment 'call_registry_id', -- call_registry
+-
+-    unique(call_registry_id),
+-    unique(ats_record_uuid),
+-    index(called_at),
+-    index(manager_id),
+-    index(client_phone),
+-    index(user_phone),
+-    index(callback_status_id),
+-
+-    constraint call_registry_missed_ifbk2 FOREIGN KEY(callback_status_id)
+-    REFERENCES call_registry_missed_callback_status(id)
+-    on update cascade on delete set null
+-) comment='контроль звонков: пропущенные звонки';
+\ No newline at end of file

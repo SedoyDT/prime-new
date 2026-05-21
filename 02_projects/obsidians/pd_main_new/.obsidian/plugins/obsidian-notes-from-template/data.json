@@ -1,0 +1,11 @@
+{
+  "outputDirectory": "test",
+  "templateFilename": "{{title}}",
+  "inputFieldList": "title,body",
+  "textReplacementTemplate": "[[{{title}}]]",
+  "templateDirectory": "Obsidian folder/from template",
+  "replaceSelection": "always",
+  "createOpen": "create",
+  "inputSplit": "\\s+-\\s+",
+  "config": "[]"
+}

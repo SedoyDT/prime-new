@@ -1,0 +1,110 @@
+diff --git a/application/modules/analitics/controllers/BalanceController.php b/application/modules/analitics/controllers/BalanceController.php
+index 0359b05433..6ed6a859a5 100644
+--- a/application/modules/analitics/controllers/BalanceController.php
++++ b/application/modules/analitics/controllers/BalanceController.php
+@@ -396,7 +396,11 @@ class Analitics_BalanceController extends Zend_Controller_Action
+         $params = array(
+             'sessionCounter' => $this->_getParam("sessionCounter"),
+         );
++//        echo "<pre>" . print_r(1, true); echo "</pre>"; // // 26.09.2024 17:16  Frolovdump Froldebug
++//        exit();
+         App_Analytics_Verify_Filter_Result::setFilterParams($params);
++        echo "<pre>" . print_r(App_Analytics_Verify_Filter_Result::getResult(), true); echo "</pre>"; // // 26.09.2024 17:17  Frolovdump Froldebug
++        exit();
+         $this->_helper->json(App_Analytics_Verify_Filter_Result::getResult());
+     }
+ 
+diff --git a/library/App/Analytics/Verify/Filter/Credit.php b/library/App/Analytics/Verify/Filter/Credit.php
+index 6091b52c10..913d059100 100644
+--- a/library/App/Analytics/Verify/Filter/Credit.php
++++ b/library/App/Analytics/Verify/Filter/Credit.php
+@@ -201,6 +201,8 @@ class App_Analytics_Verify_Filter_Credit extends App_Analytics_Verify_Filter_Abs
+             }
+         }
+ 
++//        echo "<pre>" . print_r(self::$_configFilter, true); echo "</pre>"; // // 26.09.2024 17:11  Frolovdump Froldebug
++//        exit();
+         echo json_encode(self::$_configFilter);
+     }
+ }
+diff --git a/library/App/Analytics/Verify/Filter/Result.php b/library/App/Analytics/Verify/Filter/Result.php
+index 692ead7b82..eb96f80c59 100644
+--- a/library/App/Analytics/Verify/Filter/Result.php
++++ b/library/App/Analytics/Verify/Filter/Result.php
+@@ -532,6 +532,9 @@ class App_Analytics_Verify_Filter_Result extends App_Analytics_Verify_Filter_Abs
+         $tmp->debetClientId = (object)array('select' => 'debetClientId',
+             'findField' => 'debetClientId');
+ 
++        $tmp->debetTransactionReason = (object)array('select' => 'debetTransactionReason',
++                                            'findField' => 'debetTransactionReason');
++
+         $tmp->creditTransactionType = (object)array(
+             'select' => 'creditTransactionType',
+             'findField' => 'creditTransactionType');
+@@ -542,6 +545,8 @@ class App_Analytics_Verify_Filter_Result extends App_Analytics_Verify_Filter_Abs
+         $tmp->creditClientId = (object)array('select' => 'creditClientId',
+             'findField' => 'creditClientId');
+ 
++        $tmp->creditTransactionReason = (object)array('select' => 'creditTransactionReason','findField' => 'creditTransactionReason');
++
+         return self::$config = $tmp;
+     }
+ 
+@@ -560,9 +565,11 @@ class App_Analytics_Verify_Filter_Result extends App_Analytics_Verify_Filter_Abs
+         $clientIds = implode(',', $clients);
+ 
+         $depotIds = implode(',', $requestSession->{$sessionCounter}->depot);
+-
++//        echo "<pre>" . print_r($depotIds, true); echo "</pre>"; // // 26.09.2024 17:34  Frolovdump Froldebug
++//        exit();
+         $postData = (object) unserialize(stripslashes($_POST['data']));
+-
++        echo "<pre>" . print_r($postData, true); echo "</pre>"; // // 26.09.2024 17:34  Frolovdump Froldebug
++        exit();
+         $defaultClientWhere = array();
+         $defaultClientWhere["sql"] = "( {db_field_name} in ({$clientIds}))";
+         $defaultClientWhere["filterType"] = "string";
+@@ -640,7 +647,8 @@ class App_Analytics_Verify_Filter_Result extends App_Analytics_Verify_Filter_Abs
+         }
+ 
+         $sql .= " ORDER BY `s`.`date` asc, `s`.`id` asc, `s`.`side` asc";
+-
++        echo "<pre>" . print_r($sql, true); echo "</pre>"; // // 26.09.2024 17:28  Frolovdump Froldebug
++        exit();
+         $result = self::_restructuringData(App_Db::get()->query($sql)->fetchAll(Zend_Db::FETCH_OBJ));
+ 
+         // Начальное сальдо считаем без первого дня учетного периода
+@@ -832,6 +840,9 @@ SQL;
+      */
+     protected static function _restructuringData($result)
+     {
++        $cashReason = 'cashReason';
++        echo "<pre>" . print_r($result, true); echo "</pre>"; // // 26.09.2024 17:27  Frolovdump Froldebug
++        exit();
+         $view = Zend_Layout::getMvcInstance()->getView();
+ 
+         $return = array("result" => array(), "balance" => array());
+@@ -879,7 +890,6 @@ SQL;
+                 $action = ((0 == $row->cashType) ? "account" : "money");
+ 
+                 $htmlReason = "Транзакция по кассе {$cashType} №";
+-
+                 //если есть право на редактирование и это не возвратные платежи род. кредит
+                 if (
+                         App_Access::get('access', "cash>{$action}>access>edittransaction")
+@@ -947,6 +957,7 @@ SQL;
+                 $item->debetReason = $item->debetSumm = "";
+                 $item->creditReason = $htmlReason;
+                 //$item->creditSumm = floatval($row->summ);
++                $item->cashReason = $cashReason;
+                 $item->creditSumm = App_Formatter::number($row->summ);
+                 $item->creditImaginary = $row->creditImaginary;
+                 $item->creditImaginaryTitle = $row->creditImaginaryTitle;
+@@ -956,6 +967,7 @@ SQL;
+             } else {
+                 // Если это debet
+                 $item->creditReason = $item->creditSumm = "";
++//                $item->debetReason = $htmlReason;
+                 $item->debetReason = $htmlReason;
+                 //$item->debetSumm = floatval($row->summ);
+                 $item->debetSumm = App_Formatter::number($row->summ);

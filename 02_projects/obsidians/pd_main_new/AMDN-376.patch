@@ -1,0 +1,374 @@
+diff --git a/AMDN-376.patch b/AMDN-376.patch
+index 1bb8d34e..e69de29b 100644
+--- a/AMDN-376.patch
++++ b/AMDN-376.patch
+@@ -1,369 +0,0 @@
+-diff --git a/application/configs/templatedb/tables/sales_funnel_lead_activity_field.ini b/application/configs/templatedb/tables/sales_funnel_lead_activity_field.ini
+-index e69de29bb2..42acca9949 100644
+---- a/application/configs/templatedb/tables/sales_funnel_lead_activity_field.ini
+-+++ b/application/configs/templatedb/tables/sales_funnel_lead_activity_field.ini
+-@@ -0,0 +1,30 @@
+-+
+-+; Конфигурация для таблицы 0 - обычная, 1 = каталог
+-+[config]
+-+catalog = 1
+-+
+-+[exceptions]
+-+ex1 = options
+-+
+-+[constant]
+-+; Константы
+-+constant.key = 'alias'
+-+constant.value = 'id'
+-+constant.sort_field = 'alias'
+-+constant.comment_field = 'title'
+-+; Ключ = заголовок
+-+keyTitle.key = 'id'
+-+keyTitle.value = 'title'
+-+keyTitle.sort_field = 'title'
+-+keyTitle.comment_field = 'title'
+-+; Ключ = алиас
+-+keyAlias.key = 'id'
+-+keyAlias.value = 'alias'
+-+keyAlias.sort_field = 'title'
+-+keyAlias.comment_field = 'title'
+-+; Алиас = ключ
+-+aliasKey.key = 'alias'
+-+aliasKey.value = 'id'
+-+aliasKey.sort_field = 'title'
+-+aliasKey.comment_field = 'title'
+-+
+-diff --git a/application/modules/sales-funnel/controllers/SettingsController.php b/application/modules/sales-funnel/controllers/SettingsController.php
+-index 13cfa80a63..020922ddd7 100644
+---- a/application/modules/sales-funnel/controllers/SettingsController.php
+-+++ b/application/modules/sales-funnel/controllers/SettingsController.php
+-@@ -73,6 +73,10 @@ class SalesFunnel_SettingsController extends Zend_Controller_Action
+-                 'is_active'
+-             ]);
+- 
+-+            $fields = App_Db::get()->query("
+-+                SELECT * FROM sales_funnel_lead_activity_field;
+-+            ")->fetchAll(Zend_Db::FETCH_ASSOC);
+-+
+-             return [
+-                 'result' => [
+-                     'settings' => $this->settingsMapper->getSettings(),
+-@@ -83,7 +87,8 @@ class SalesFunnel_SettingsController extends Zend_Controller_Action
+-                         $this->leadPropCategoryFactory->all()->getItems()
+-                     ),
+-                     'dealsRating' => $this->leadDealsRatingRepository->getAll(),
+--                    'eventActivities' => $events
+-+                    'eventActivities' => $events,
+-+                    'fields' => $fields
+-                 ],
+-             ];
+-         });
+-diff --git a/library/App/CodeGenerator/ClassGenerator/DbTable/Builder.php b/library/App/CodeGenerator/ClassGenerator/DbTable/Builder.php
+-index 32d7c64569..210550a0be 100644
+---- a/library/App/CodeGenerator/ClassGenerator/DbTable/Builder.php
+-+++ b/library/App/CodeGenerator/ClassGenerator/DbTable/Builder.php
+-@@ -33,6 +33,7 @@ class Builder
+- 
+-     public function generate()
+-     {
+-+        $this->_options['creator'] = 'Frolov Anatoliyfrolov_anatoliy@amd-co.ru>';
+-         if (empty($this->_options['creator'])) {
+-             throw new \RuntimeException('Укажите автора');
+-         }
+-diff --git a/library/App/Constant/TableList.php b/library/App/Constant/TableList.php
+-index 70c2d5af65..430a9b10e2 100644
+---- a/library/App/Constant/TableList.php
+-+++ b/library/App/Constant/TableList.php
+-@@ -261,12 +261,12 @@ define('DB_ANALYTICS_PROFITABILITY_VARS', 'analytics_profitability_vars');
+- define('DB_ANALYTICS_PROJECT_CAPITALIZATION', 'analytics_project_capitalization');
+- 
+- /**
+-- * Анализ продаж, исходные данные для отчета
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_ANALYTICS_SALES_ANALYSIS', 'analytics_sales_analysis');
+- 
+- /**
+-- * Анализ продаж, маржинальность по периодам (создается в коде)
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_ANALYTICS_SALES_ANALYSIS_MARGINALITY', 'analytics_sales_analysis_marginality');
+- 
+-@@ -276,7 +276,7 @@ define('DB_ANALYTICS_SALES_ANALYSIS_MARGINALITY', 'analytics_sales_analysis_marg
+- define('DB_ANALYTICS_SALES_ANALYSIS_QUEUE', 'analytics_sales_analysis_queue');
+- 
+- /**
+-- * Анализ продаж, оборот по периодам (создается в коде)
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_ANALYTICS_SALES_ANALYSIS_TURNOVER', 'analytics_sales_analysis_turnover');
+- 
+-@@ -631,7 +631,7 @@ define('DB_CALL_RECORDS', 'call_records');
+- define('DB_CALL_REGISTRY', 'call_registry');
+- 
+- /**
+-- * анализ звонков: настройки анализа
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_CALL_REGISTRY_ANALYSIS_SETTINGS', 'call_registry_analysis_settings');
+- 
+-@@ -791,7 +791,7 @@ define('DB_CASH_DIRECTOR_WAGE_EXCEPTIONS', 'cash_director_wage_exceptions');
+- define('DB_CASH_DUPLICATES', 'cash_duplicates');
+- 
+- /**
+-- * Статьи расходов
+-+ * Статья расхода. ВНИМАНИЕ! При изменении данных в таблице необходимо также внести изменения на в cash_expense_items на проекте ВМК
+-  */
+- define('DB_CASH_EXPENSE_ITEMS', 'cash_expense_items');
+- 
+-@@ -1686,7 +1686,7 @@ define('DB_CLIENT_LIST_AGREEMENT_CLIENT_CHECK', 'client_list_agreement_client_ch
+- define('DB_CLIENT_LIST_AGREEMENT_CONTRACTS', 'client_list_agreement_contracts');
+- 
+- /**
+-- * таблица принятых решений в листе согласования
+-+ * таблица принятых решений по связи листа согласования с шаблоном договора
+-  */
+- define('DB_CLIENT_LIST_AGREEMENT_DECISIONS', 'client_list_agreement_decisions');
+- 
+-@@ -2031,12 +2031,12 @@ define('DB_CORP_PHONE_TARIFF', 'corp_phone_tariff');
+- define('DB_COUNTRY', 'country');
+- 
+- /**
+-- * Список кронов
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_CRON_LIST', 'cron_list');
+- 
+- /**
+-- * Список кронов по проектам
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_CRON_LIST_PROJECTS', 'cron_list_projects');
+- 
+-@@ -4131,7 +4131,7 @@ define('DB_RECEIPT_PRICE_TOOL_GROUPS', 'receipt_price_tool_groups');
+- define('DB_RECEIPT_PURCHASES', 'receipt_purchases');
+- 
+- /**
+-- * Необходимые закупки детализация
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_RECEIPT_PURCHASES_DETAILS', 'receipt_purchases_details');
+- 
+-@@ -4246,7 +4246,7 @@ define('DB_RECEIPT_TREE', 'receipt_tree');
+- define('DB_RECEIPT_TREE_TEMPLATE', 'receipt_tree_template');
+- 
+- /**
+-- * rechka ai: список отчетов
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_RECHKAAI_REPORT', 'rechkaai_report');
+- 
+-@@ -4271,7 +4271,7 @@ define('DB_RECHKAAI_TASK_CALLREPORT_FIELD_TYPE', 'rechkaai_task_callreport_field
+- define('DB_RECHKAAI_TASK_CALLREPORT_GROUP', 'rechkaai_task_callreport_group');
+- 
+- /**
+-- * rechka ai: правила создания заданий и настройки заданий
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_RECHKAAI_TASK_CREATION_RULE', 'rechkaai_task_creation_rule');
+- 
+-@@ -4756,10 +4756,15 @@ define('DB_SALES_FUNNEL_FILTER_USER', 'sales_funnel_filter_user');
+- define('DB_SALES_FUNNEL_LEAD', 'sales_funnel_lead');
+- 
+- /**
+-- * Указания какие события являются активностями
+-+ * Воронка продаж: Указания какие события являются активностями
+-  */
+- define('DB_SALES_FUNNEL_LEAD_ACTIVITY_EVENT', 'sales_funnel_lead_activity_event');
+- 
+-+/**
+-+ * Воронка продаж: настройка учёта изменений полей лида как активности
+-+ */
+-+define('DB_SALES_FUNNEL_LEAD_ACTIVITY_FIELD', 'sales_funnel_lead_activity_field');
+-+
+- /**
+-  * Агрегированные данные лидов
+-  */
+-@@ -5936,6 +5941,6 @@ define('DB_YANDEX_360_ORGANIZATION', 'yandex_360_organization');
+- define('DB_YANDEX_360_ORGANIZATION_DOMAIN', 'yandex_360_organization_domain');
+- 
+- /**
+-- * Аккаунты Zoho
+-+ * ToDo добавить комментарий
+-  */
+- define('DB_ZOHO_ACCOUNT', 'zoho_account');
+-diff --git a/public/js/app/application/sales-funnel/funnel/component/funnel-settings.component.js b/public/js/app/application/sales-funnel/funnel/component/funnel-settings.component.js
+-index 4eaed00dd5..e7ad2b938a 100644
+---- a/public/js/app/application/sales-funnel/funnel/component/funnel-settings.component.js
+-+++ b/public/js/app/application/sales-funnel/funnel/component/funnel-settings.component.js
+-@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
+- var __param = (this && this.__param) || function (paramIndex, decorator) {
+-     return function (target, key) { decorator(target, key, paramIndex); }
+- };
+--define(["require", "exports", "../../../../angular/decorator/component.decorator", "../service/backend.service", "../../../../core/service/message.service", "../../../../core/service/toast.service", "../../../../angular/component/amd-switch/amd-switch.component"], function (require, exports, component_decorator_1, backend_service_1, message_service_1, toast_service_1, amd_switch_component_1) {
+-+define(["require", "exports", "../../../../angular/decorator/component.decorator", "../service/backend.service", "../../../../core/service/message.service", "../../../../core/service/toast.service", "../../../../angular/component/amd-switch/amd-switch.component", "../../../../core/model/data-source/array.data-source", "../../../../angular/component/amd-select/amd-select.filter"], function (require, exports, component_decorator_1, backend_service_1, message_service_1, toast_service_1, amd_switch_component_1, array_data_source_1, amd_select_filter_1) {
+-     "use strict";
+-     Object.defineProperty(exports, "__esModule", { value: true });
+-     exports.FunnelSettingsComponent = void 0;
+-@@ -59,6 +59,13 @@ define(["require", "exports", "../../../../angular/decorator/component.decorator
+-                             >
+-                                 {{item.title}}
+-                             </amd-switch>
+-+                            <span ng-if="item.id == 3">
+-+                                <amd-multiselect
+-+                                    ng-if="$ctrl.fieldsSource"
+-+                                    ng-model="$ctrl.fileds"
+-+                                    data-source="$ctrl.fieldsSource"
+-+                                ></amd-multiselect>
+-+                            </span>
+-                         </div>
+-                     </amd-zend-control>
+-                 </div>
+-@@ -91,6 +98,13 @@ define(["require", "exports", "../../../../angular/decorator/component.decorator
+-                     .map((item) => {
+-                     return { id: item.id, title: item.event_description, is_active: +item.is_active > 0 };
+-                 });
+-+                this.fields = data.fields;
+-+                this.fieldsSource = new array_data_source_1.default(new amd_select_filter_1.default(), Object.entries(this.fields).map(([key, value]) => {
+-+                    return {
+-+                        text: value.field_title,
+-+                        value: +key
+-+                    };
+-+                }));
+-             }, reason => (new message_service_1.default()).alert(reason));
+-         }
+-         save() {
+-diff --git a/query/admn-376.sql b/query/admn-376.sql
+-index 3235ff6c5f..8300f98fbe 100644
+---- a/query/admn-376.sql
+-+++ b/query/admn-376.sql
+-@@ -1,20 +1,41 @@
+- DROP TABLE IF EXISTS `sales_funnel_lead_activity_event`;
+--
+- CREATE TABLE `sales_funnel_lead_activity_event` (
+-     `id` INT AUTO_INCREMENT PRIMARY KEY,
+-     `event_name` VARCHAR(150) NOT NULL COMMENT 'Название события',
+-     `event_description` VARCHAR(1000) COMMENT 'Описание события',
+-     `is_active` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'считается ли это событие активностью',
+--    `options` JSON COMMENT 'Дополнительные опции',
+-     INDEX (event_name)
+- ) COMMENT='Воронка продаж: Указания какие события являются активностями';
+- 
+- 
+-+CREATE TABLE `sales_funnel_lead_activity_field` (
+-+       `id` INT AUTO_INCREMENT PRIMARY KEY,
+-+       `field` VARCHAR(50) NOT NULL COMMENT 'field, поле в лиде',
+-+       `field_title` VARCHAR(50) NOT NULL COMMENT 'Понятное человеку название поля лида',
+-+       `is_active` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'считается ли изменение этого поля активностью',
+-+       UNIQUE KEY `field` (`field`)
+-+) COMMENT = 'Воронка продаж: настройка учёта изменений полей лида как активности';
+-+
+-+
+-+INSERT INTO `sales_funnel_lead_activity_field` (`field`, `field_title`)
+-+VALUES
+-+    ('owner', 'Владелец'),
+-+    ('assignee', 'Исполнитель'),
+-+    ('funnel', 'Воронка'),
+-+    ('stage', 'Этап'),
+-+    ('name', 'Название'),
+-+    ('client', 'Клиент'),
+-+    ('client_inn', 'ИНН клиента'),
+-+    ('annotation', 'Примечание по лиду'),
+-+    ('planned_date', 'Дата планируемой сделки'),
+-+    ('planned_sum', 'Планируемая сумма'),
+-+    ('actual_sum', 'Фактическая сумма'),
+-+
+-+
+- INSERT INTO `sales_funnel_lead_activity_event` (`event_name`, `event_description`)
+- VALUES
+-     ('App\\Event\\SalesFunnel\\Type\\LeadCreation', 'Создание лида'),
+-     ('App\\Event\\SalesFunnel\\Type\\LeadClosed', 'Переход лида на закрытый этап воронки'),
+--    ('App\\Event\\SalesFunnel\\Type\\LeadCommentAdded', 'Добавление комментария к лиду'),
+-     ('App\\Event\\SalesFunnel\\Type\\LeadFieldChanged', 'Изменение пользовательского поля лида'),
+-     ('App\\Event\\SalesFunnel\\Type\\LeadStageChanged', 'Изменение этапа воронки у лида'),
+-     ('App\\Event\\SalesFunnel\\Type\\LeadClientChanged', 'Изменение привязанного клиента у лида'),
+-@@ -39,8 +60,6 @@ VALUES
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\ClientAddRequestCreated', 'Создание запроса на добавление клиента'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\CashAccountCreated', 'Создание кассового счёта'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\CashMoneyCreated', 'Фиксация движения денежных средств'),
+--    ('App\\Event\\SalesFunnel\\Type\\Relation\\CalendarNotificationCreated', 'Создание календарного уведомления'),
+--    ('App\\Event\\SalesFunnel\\Type\\Relation\\StaffTaskCreated', 'Создание задачи для сотрудника, связанной с лидом'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\AvitoChatMessageCreated', 'Получение сообщения из чата Avito, привязанного к лиду'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\ReceiptPlanManufacturesCreated', 'Создание связи с планом производства изделий'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\ReceiptPlanAccessoriesCreated', 'Создание связи с планом производства комплектующих'),
+-@@ -56,8 +75,6 @@ VALUES
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\ClientAddRequestRemoved', 'Удаление запроса на добавление клиента'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\CashAccountRemoved', 'Удаление безнальной транзакции'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\CashMoneyRemoved', 'Удаление нальной транзакции'),
+--    ('App\\Event\\SalesFunnel\\Type\\Relation\\CalendarNotificationRemoved', 'Удаление уведомления календаря'),
+--    ('App\\Event\\SalesFunnel\\Type\\Relation\\StaffTaskRemoved', 'Удаление задачи для сотрудника'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\AvitoChatMessageRemoved', 'Удаление сообщения из чата Avito'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\ReceiptPlanManufacturesRemoved', 'Удаление связи с планом производства изделий'),
+-     ('App\\Event\\SalesFunnel\\Type\\Relation\\ReceiptPlanAccessoriesRemoved', 'Удаление связи с планом производства комплектующих'),
+-diff --git a/typescript/app/application/sales-funnel/funnel/component/funnel-settings.component.ts b/typescript/app/application/sales-funnel/funnel/component/funnel-settings.component.ts
+-index 400c9e90c1..1049a64124 100644
+---- a/typescript/app/application/sales-funnel/funnel/component/funnel-settings.component.ts
+-+++ b/typescript/app/application/sales-funnel/funnel/component/funnel-settings.component.ts
+-@@ -10,6 +10,8 @@ import TPropCategory = SalesFunnelFunnel.TPropCategory;
+- import {TDealsRating} from "../module/deals-rating/deals-rating";
+- import TLoadSettingsData = SalesFunnelFunnel.TLoadSettingsData;
+- import {ELabelPosition} from "../../../../angular/component/amd-switch/amd-switch.component";
+-+import ArrayDataSource from "../../../../core/model/data-source/array.data-source";
+-+import AmdSelectFilter from "../../../../angular/component/amd-select/amd-select.filter";
+- 
+- const TEMPLATE = `
+- <amd-dialog data-wait-promise="$ctrl.waitPromise">
+-@@ -59,6 +61,13 @@ const TEMPLATE = `
+-                             >
+-                                 {{item.title}}
+-                             </amd-switch>
+-+                            <span ng-if="item.id == 3">
+-+                                <amd-multiselect
+-+                                    ng-if="$ctrl.fieldsSource"
+-+                                    ng-model="$ctrl.fileds"
+-+                                    data-source="$ctrl.fieldsSource"
+-+                                ></amd-multiselect>
+-+                            </span>
+-                         </div>
+-                     </amd-zend-control>
+-                 </div>
+-@@ -95,6 +104,9 @@ export class FunnelSettingsComponent implements IComponentController
+- 
+-     private eventActivitiesSettings: {is_active: boolean, title: string, id: number}[]
+- 
+-+    private fieldsSource: ArrayDataSource<{ text: unknown; value: string }>;
+-+    private fields: any[];
+-+
+-     constructor(
+-         @Inject(BackendService) private backendService: BackendService,
+-     ) {
+-@@ -120,6 +132,17 @@ export class FunnelSettingsComponent implements IComponentController
+-                         .map((item: any) => {
+-                             return {id: item.id, title: item.event_description, is_active: +item.is_active > 0}
+-                         });
+-+
+-+                    this.fields = data.fields;
+-+                    this.fieldsSource = new ArrayDataSource<{ text: unknown; value: string }>(
+-+                        new AmdSelectFilter(),
+-+                        Object.entries(this.fields).map(([key, value]) => {
+-+                            return {
+-+                                text: value.field_title,
+-+                                value: +key
+-+                            };
+-+                        })
+-+                    );
+-                 },
+-                 reason => (new MessageService()).alert(reason)
+-             );
+-diff --git a/typescript/app/application/sales-funnel/funnel/types.d.ts b/typescript/app/application/sales-funnel/funnel/types.d.ts
+-index 74b35ae627..9e1ead2831 100644
+---- a/typescript/app/application/sales-funnel/funnel/types.d.ts
+-+++ b/typescript/app/application/sales-funnel/funnel/types.d.ts
+-@@ -44,6 +44,7 @@ export namespace SalesFunnelFunnel {
+-     };
+- 
+-     type TLoadSettingsData = {
+-+        fields: string[];
+-         eventActivities: any;
+-         settings: TSettings,
+-         propCategories: TPropCategory[],

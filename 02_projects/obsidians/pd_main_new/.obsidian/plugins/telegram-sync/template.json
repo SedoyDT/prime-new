@@ -1,0 +1,20 @@
+   {
+      "messageFilterQuery": "{{chat=Книги}}{{topic=Тонкое_исскуство_пофигизма}}",
+      "messageFilterConditions": [
+        {
+          "conditionType": "chat",
+          "operation": "=",
+          "value": "Книги"
+        },
+        {
+          "conditionType": "topic",
+          "operation": "=",
+          "value": "Тонкое_исскуство_пофигизма"
+        }
+      ],
+      "templateFilePath": "Templates/Книги_Тонкое_исскуство_пофигизма/Книги_Тонкое_исскуство_пофигизма.md",
+      "notePathTemplate": "inbox/Telegram/Книги/Книги/Книги_Тонкое_исскуство_пофигизма.md",
+      "filePathTemplate": "inbox/Telegram/Книги/Книги/",
+      "reversedOrder": true,
+      "heading": ""
+    },

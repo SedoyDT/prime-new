@@ -1,0 +1,5 @@
+{
+  "folder": "daily",
+  "template": "Obsidian folder/templates/uniq",
+  "format": "YYYY/[Q]Q/MMMM/[W]WW/YYYY-[Q]Q-MMMM/DD/hhss"
+}

@@ -1,0 +1,191 @@
+diff --git a/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml b/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml
+index 64daba402c..1447d9c4b5 100644
+--- a/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml
++++ b/application/modules/libdoc/views/scripts/contracts/editor/contract17-parts/contract17.phtml
+@@ -1,9 +1,10 @@
+ <?php
+-    if (!isset($this->contract->data->p3_1_3_3)) {
+-        $this->contract->data->p3_1_3_3 = 0;
++    if (!isset($this->contract->data->p3_1_3_4)) {
++        $this->contract->data->p3_1_3_4 = 0;
+     }
+ ?>
+ 
++
+ <script>
+     //$(document).ready(function ()
+     //{
+@@ -269,22 +270,6 @@
+                                     <br>- электроснабжение, с учетом технологических потерь электроэнергии при ее передаче по электрическим сетям;
+                                     <br>- водоснабжение и водоотведение по приборам учета;
+                                     <br>-
+-                                    <span>
+-                                        <select class="js-building-type no-print" id="p3_1_3_3_select">
+-                                            <option value="0" <?php echo (int) $this->contract->data->p3_1_3_3 === 0 ? 'selected' : '' ?>>фиксированное 100р</option>
+-                                            <option value="1" <?php echo (int) $this->contract->data->p3_1_3_3 === 1 ? 'selected' : '' ?>>на основании выставленных квитанций</option>
+-                                            <option value="2" <?php echo (int) $this->contract->data->p3_1_3_3 === 2 ? 'selected' : '' ?>>свое значение</option>
+-                                        </select>
+-                                        <span class="p3_1_3_3_val hidden" data-val="0">
+-                                            отопление, с учетом начисления в отопительный сезон в размере 100 (сто) рублей за 1 кв. м арендуемой площади;
+-                                        </span>
+-                                        <span class="p3_1_3_3_val hidden" data-val="1">
+-                                            (стоимость отопления рассчитывается на основании выставленных квитанций ресурсоснабжающей организации Пропорционально занимаемой арендуемой площади) рублей.
+-                                        </span>
+-                                        <span class="p3_1_3_3_val hidden" data-val="2">
+-                                            <?php echo $this->fields->getField('p_3_1_3_3_custom_value'); ?>
+-                                        </span>
+-                                    </span>
+                                     <br>- единый взнос на круглогодичную уборку внешней территории, из расчета 30 (тридцати) рублей за квадратный метр от арендуемой площади.
+                                     <br>- вывоз мусора и иные эксплуатационные расходы, в том числе по квитанциям ЖКХ, и не включенные в Постоянную часть арендной платы..
+                                 </span>
+@@ -486,23 +471,64 @@
+                     в дальнейшем совместно именуемые «Стороны», заключили настоящий Акт о нижеследующем:
+                 </div>
+             </div>
+-            <ol class="last-ol">
+-                <li>
+-                    Арендодатель, в соответствии с условиями договора № <?php echo $this->fields->getField('contractNumber'); ?> аренды нежилого помещения от <?php echo $this->fields->getField('contractDate'); ?> (далее - "Договор"),
+-                    передал, а Арендатор принял во временное пользование нежилое помещение, арендуемой площадью:
+-                    <?php echo $this->fields->getField('realtyPlace'); ?> кв.м.,
+-                    расположенное на земельном участке по адресу: <?php echo $this->fields->getField('realtyAddress'); ?>
+-                </li>
+-                <li>
+-                    <?php echo $this->fields->getField('actP2'); ?>
+-                </li>
+-                <li>
+-                    <span>На   момент   составления   настоящего Акта   нежилое помещение находится в следующем техническом состоянии:<?php echo $this->fields->getField('technicalState'); ?>.</span>
+-                </li>
+-                <li>Показатели приборов учета: ____________________________________________________________
+-                    ________________________________________________________________________________________________________________________________________________________________________________________________________</li>
+-                <li>Настоящий акт составлен в двух экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.</li>
+-            </ol>
++            <br>
++            <span>
++                <select class="js-building-type no-print" id="p3_1_3_4_select">
++                    <option value="0" <?php echo (int) $this->contract->data->p3_1_3_4 === 0 ? 'selected' : '' ?>>С фотографиями</option>
++                    <option value="1" <?php echo (int) $this->contract->data->p3_1_3_4 === 1 ? 'selected' : '' ?>>Без фотографии</option>
++                </select>
++            </span>
++            <span class="p3_1_3_4_val hidden" data-val="1">
++                <ol class="last-ol">
++                    <li>
++                        Арендодатель, в соответствии с условиями договора № <?php echo $this->fields->getField('contractNumber'); ?> аренды нежилого помещения от <?php echo $this->fields->getField('contractDate'); ?> (далее - "Договор"),
++                        передал, а Арендатор принял во временное пользование нежилое помещение, арендуемой площадью:
++                        <?php echo $this->fields->getField('realtyPlace'); ?> кв.м.,
++                        расположенное на земельном участке по адресу: <?php echo $this->fields->getField('realtyAddress'); ?>
++                    </li>
++                    <li>
++                        <?php echo $this->fields->getField('actP2'); ?>
++                    </li>
++                    <li>
++                        <span>На   момент   составления   настоящего Акта   нежилое помещение находится в следующем техническом состоянии:<?php echo $this->fields->getField('technicalState'); ?>.</span>
++                    </li>
++                    <li>Показатели приборов учета: ____________________________________________________________
++                        ________________________________________________________________________________________________________________________________________________________________________________________________________</li>
++                    <li>Настоящий акт составлен в двух экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.</li>
++                </ol>
++            </span>
++            <span class="p3_1_3_4_val hidden" data-val="0">
++                <ol class="last-ol">
++                    <li>
++                        Арендодатель, в соответствии с условиями договора № <?php echo $this->fields->getField('contractNumber'); ?> аренды нежилого помещения от <?php echo $this->fields->getField('contractDate'); ?> (далее - "Договор"),
++                        передал, а Арендатор принял во временное пользование нежилое помещение, арендуемой площадью:
++                        <?php echo $this->fields->getField('realtyPlace'); ?> кв.м.,
++                        расположенное на земельном участке по адресу: <?php echo $this->fields->getField('realtyAddress'); ?>
++                    </li>
++                    <li>
++                        <?php echo $this->fields->getField('actP2'); ?>
++                    </li>
++                    <li>
++                        <span>На   момент   составления   настоящего Акта   нежилое помещение находится в следующем техническом состоянии:<?php echo $this->fields->getField('technicalState'); ?>.</span>
++                    </li>
++                    <li>
++                        На момент составления настоящего Акта нежилое помещение визуально находится в удовлетворительном состоянии и подтверждается, в том числе, приложенными к настоящему Акту фотографиями нежилого помещения, подписанными обеими сторонами. Стороны подтверждают, что данные фотографии полностью отображают вид данного нежилого помещения и сделаны в момент приемки данного помещения по акту приема-передачи.
++                    </li>
++                    <li><?php echo $this->fields->getField('instrumentIndicators'); ?>
++                    </li>
++                    <li>
++                        Дополнительные комментарии сторон: __________________________________________________________________
++                    </li>
++                    <li>
++                        <?php echo $this->fields->getField('examples'); ?>
++                    </li>
++                </ol>
++            </span>
++            <p>
++                <b>Приложение:</b>
++                <p>Фотографии нежилого помещения</p>
++            </p>
++
+             <div class="page-break-inside_avoid">
+                 <?php echo $this->render($this->pathParts . 'customer-name.phtml'); ?>
+                 <?php echo $this->render($this->pathParts . 'customer-details.phtml'); ?>
+diff --git a/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php b/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php
+index 98598a39f4..7ba6d6df38 100644
+--- a/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php
++++ b/library/App/Libdoc/Contracts/Editor/Fields/Contract17.php
+@@ -17,6 +17,8 @@ class App_Libdoc_Contracts_Editor_Fields_Contract17 extends App_Libdoc_Contracts
+     public $realtyfloor                          = '<span class="cv rq" data-field="realtyfloor" data-group="floor" contenteditable="true">{VALUE}</span>';
+     public $realtyAddress                        = '<span class="cv rq" data-field="realtyAddress" data-group="address" contenteditable="true">{VALUE}</span>';
+     public $technicalState                       = '<span class="cv rq" data-field="technicalState" data-group="state" contenteditable="true">{VALUE}</span>';
++    public $instrumentIndicators                 = '<span class="dv rq" data-field="instrumentIndicators"  contenteditable="true">{VALUE}</span>';
++    public $examples                             = '<span class="dv rq" data-field="examples"  contenteditable="true">{VALUE}</span>';
+     public $realtyUsingGoal                      = '<span class="cv rq" data-field="realtyUsingGoal" contenteditable="true">{VALUE}</span>';
+ 
+     public $paymentSum                           = '<span class="cv rq" data-field="paymentSum" contenteditable="true">{VALUE}</span>';
+@@ -59,6 +61,8 @@ class App_Libdoc_Contracts_Editor_Fields_Contract17 extends App_Libdoc_Contracts
+     public $defaultValues = array(
+         'actP2' => 'Нежилое помещение оборудовано системами коммунальной инфраструктуры: холодное и горячее водоснабжение, 
+                 водоотведение, электро- и теплоснабжение.',
+-        'technicalState' => 'Установлены приборы учета на потребление воды и электроэнергии.'
++        'technicalState' => 'Установлены приборы учета на потребление воды и электроэнергии.',
++        'instrumentIndicators' => 'Установлены приборы учета на потребление воды и электроэнергии. Показатели приборов учета: _____________________________________________________________________________________________________',
++        'examples' => 'Настоящий акт составлен в двух экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.'
+     );
+ }
+diff --git a/public/css/libdoc/contracts/editor/contract17.css b/public/css/libdoc/contracts/editor/contract17.css
+index 1096d4ecad..35659a1d56 100644
+--- a/public/css/libdoc/contracts/editor/contract17.css
++++ b/public/css/libdoc/contracts/editor/contract17.css
+@@ -87,3 +87,11 @@ section.print {
+     top: -20px;
+ }
+ 
++.comments {
++    max-width: 100%;
++    word-break: break-all;
++    overflow-wrap: break-word;
++    /* Дополнительно: если фон или рамка — для наглядности */
++    background: #f9f9f9;
++    padding: 2px 4px;
++}
+\ No newline at end of file
+diff --git a/public/js/libdoc/contracts/editor/contract17/main.js b/public/js/libdoc/contracts/editor/contract17/main.js
+index c10a99f525..b48452078a 100644
+--- a/public/js/libdoc/contracts/editor/contract17/main.js
++++ b/public/js/libdoc/contracts/editor/contract17/main.js
+@@ -13,11 +13,11 @@ var contract = new (class extends Libdoc_Contracts_Editor_Contract_Abstract2
+             }
+         })
+ 
+-        $(`span.p3_1_3_3_val[data-val='${contractData.p3_1_3_3}']`).removeClass('hidden');
+-        $(`select#p3_1_3_3_select`).on('change', function(e)
++        $(`span.p3_1_3_4_val[data-val='${contractData.p3_1_3_4}']`).removeClass('hidden');
++        $(`select#p3_1_3_4_select`).on('change', function(e)
+         {
+-            $(`span.p3_1_3_3_val`).addClass('hidden');
+-            $(`span.p3_1_3_3_val[data-val='${this.value}']`).removeClass('hidden');
++            $(`span.p3_1_3_4_val`).addClass('hidden');
++            $(`span.p3_1_3_4_val[data-val='${this.value}']`).removeClass('hidden');
+         });
+ 
+ 
+@@ -48,7 +48,7 @@ var contract = new (class extends Libdoc_Contracts_Editor_Contract_Abstract2
+         let data = super.collectData();
+ 
+         data.data.buildingType = this.buildingType.getBuildingType();
+-        data.data.p3_1_3_3 = $("select#p3_1_3_3_select").val();
++        data.data.p3_1_3_4 = $("select#p3_1_3_4_select").val();
+ 
+         return data;
+     };

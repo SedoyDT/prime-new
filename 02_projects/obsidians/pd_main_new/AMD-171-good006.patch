@@ -1,0 +1,34 @@
+diff --git a/library/App/Network/Service/Synchronize/Synchronizator.php b/library/App/Network/Service/Synchronize/Synchronizator.php
+index 69983987b9..4393544102 100644
+--- a/library/App/Network/Service/Synchronize/Synchronizator.php
++++ b/library/App/Network/Service/Synchronize/Synchronizator.php
+@@ -115,15 +115,26 @@ class Synchronizator
+             $sender->setProjectId($projectModel->getId());
+             // отправка данных
+             $sendResult = $sender->synchronize($dataToSend, $filesToSend);
+-
++//
++//            echo "<pre>" . print_r('$sender->getRequestResult()->hasErrors()', true); echo "</pre>"; // FrolovDEBUG
++//            echo "<pre>" . print_r($sender->getRequestResult()->getErrors(), true); echo "</pre>"; // FrolovDEBUG
++//            exit();
+             // обработка результата
+             $error = null;
+             if (!$sendResult) {
++//                echo "<pre>" . print_r($sender->getErrors()['message'], true); echo "</pre>"; // FrolovDEBUG
++//                exit();
+                 $error = 'Sender ' . ($projectModel->getFullUrl()) . ' error: ' . $sender->getErrors()['message'] . '. Wanted to send: ' . print_r($data, true);
+             } else if ($sender->getRequestResult()->hasErrors() && $sender->getRequestResult()->isBadJSONError()) {
+-                $error = 'Service ' . ($projectModel->getFullUrl()) . ' returned abrakadabra: ' . $sender->getRequestResult()->getRawResult() . '. Wanted to send: ' . print_r($data, true);
++//                echo "<pre>" . print_r('here2', true); echo "</pre>"; // FrolovDEBUG
++//                exit();
++//                $error = 'Service ' . ($projectModel->getFullUrl()) . ' returned abrakadabra: ' . $sender->getRequestResult()->getRawResult() . '. Wanted to send: ' . print_r($data, true);
++//                $error = 'Service ' . ($projectModel->getFullUrl()) . ' returned abrakadabra: ' . $sender->getRequestResult()->getRawResult() . '. Wanted to send: ' . print_r($data, true);
+             } else if ($sender->getRequestResult()->hasErrors()){
+-                $error = 'Service from ' . ($projectModel->getFullUrl()) . ' returned error: ' . implode(',', $sender->getRequestResult()->getErrors()) . '. Wanted to send: ' . print_r($data, true);
++
++//                echo "<pre>" . print_r('here', true); echo "</pre>"; // FrolovDEBUG
++//                exit();
++//                $error = 'Service from ' . ($projectModel->getFullUrl()) . ' returned error: ' . implode(',', $sender->getRequestResult()->getErrors()) . '. Wanted to send: ' . print_r($data, true);
+             }
+ 
+             if (!empty($error)) {

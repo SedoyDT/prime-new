@@ -1,0 +1,240 @@
+.chat-modal-content {
+    height: 60vh;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.chat-messages {
+    overflow-y: auto;
+    margin: 10px 0;
+    padding: 10px;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    /* Spacing between messages */
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+    /* Spacing between input and button */
+}
+
+.chat-input input {
+    flex: 1 1 auto;
+    padding: 10px;
+}
+
+.chat-input button {
+    flex: 0 0 auto;
+    padding: 10px 20px;
+}
+
+.message {
+    max-width: 80%;
+    /* Ensure messages don't span the entire width for readability */
+    padding: 5px 10px;
+    word-wrap: break-word;
+    border-radius: 5px;
+}
+
+.user-message {
+    align-self: flex-end;
+    background-color: var(--background-secondary);
+}
+
+.bot-message {
+    align-self: flex-start;
+    background-color: var(--background-secondary);
+    ;
+}
+
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.typing-indicator span {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 2px;
+    background-color: var(--color-purple);
+    /* Change this to your desired color */
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: pulsate 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes pulsate {
+
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+.hidden {
+    display: none !important;
+}
+
+.conversation-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    padding: 5px 15px;
+    background-color: var(--background-primary-alt);
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    font-size: 1rem;
+    white-space: nowrap;
+}
+
+.conversation-button:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.conversation-list-item {
+    position: relative;
+    display: block;
+    padding: 8px 12px;
+    margin: 2px 0;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    color: var(--text-normal);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.conversation-list-item:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.conversation-list-item.active {
+    background-color: var(--background-modifier-active-hover);
+    border-color: #90c2ff;
+}
+
+.conversation-list-item {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.delete-button {
+    display: none;
+}
+
+.conversation-list-item:hover .delete-button {
+    display: flex;
+    position: absolute;
+    right: 10px;
+    z-index: 5px;
+}
+
+.chat-interface {
+    flex-grow: 1;
+    border-width: 4px;
+    border-color: white;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.conversation-list {
+    z-index: 2;
+}
+
+.panel {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.3s ease-in-out;
+    z-index: 1;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.panel-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.fadein {
+    animation: fadein;
+    animation-duration: 0.3s;
+    animation-timing-function: ease-in-out;
+}
+
+.fadeout {
+    animation: fadeout;
+    animation-duration: 0.3s;
+    animation-timing-function: ease-in-out;
+
+}
+
+@keyframes fadein {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeout {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+.newChatButton {
+    position: sticky;
+    top:0;
+    z-index: 3;
+    display: block;
+    padding: 8px 12px;
+    margin: 2px 0;
+    background-color: var(--background-secondary);
+    border: 4px dashed var(--background-modifier-border);
+    border-radius: 4px;
+    color: var(--text-normal);
+    text-decoration: none;
+    cursor: pointer;
+    justify-content: center;
+    text-align: center;
+}
+
+.newChatButton:hover {
+    background-color: var(--background-secondary-alt);
+    transition: 0.3s;
+}
