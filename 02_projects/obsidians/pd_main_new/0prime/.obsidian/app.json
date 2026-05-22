@@ -1,8 +1,0 @@
-{
-  "openBehavior": "daily",
-  "showUnsupportedFiles": true,
-  "newFileLocation": "current",
-  "attachmentFolderPath": "./",
-  "alwaysUpdateLinks": true,
-  "livePreview": false
-}
