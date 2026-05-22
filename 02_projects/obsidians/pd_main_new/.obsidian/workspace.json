@@ -1,0 +1,322 @@
+{
+  "main": {
+    "id": "05cc9e3377729153",
+    "type": "split",
+    "children": [
+      {
+        "id": "13d6644b189aa771",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "57410f1d7df8db9c",
+            "type": "leaf",
+            "state": {
+              "type": "kanban",
+              "state": {
+                "file": "Obsidian folder/templates/2026.md"
+              },
+              "icon": "lucide-trello",
+              "title": "2026"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "e274aa4bbfcc6d5f",
+    "type": "split",
+    "children": [
+      {
+        "id": "e8f2d227eea8e945",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7549d2270c789fb5",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Файловый менеджер"
+            }
+          },
+          {
+            "id": "948999bcec2bce19",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "tag:#силы",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Поиск"
+            }
+          },
+          {
+            "id": "4b3a448d754b40f5",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          },
+          {
+            "id": "e17f8ebadc312788",
+            "type": "leaf",
+            "state": {
+              "type": "rag-test-view",
+              "state": {},
+              "icon": "lucide-ghost",
+              "title": "rag-test-view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 500.5,
+    "collapsed": true
+  },
+  "right": {
+    "id": "14b9038e68e64780",
+    "type": "split",
+    "children": [
+      {
+        "id": "33238ca30d83cc2b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "bfbff384f1954cdb",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Obsidian folder/templates/2026.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Обратные ссылки для 2026"
+            }
+          },
+          {
+            "id": "b823ffc9c2049bae",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "daily/2026/Q1/January/W02/2026-Q1-January/09/0609.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from 0609"
+            }
+          },
+          {
+            "id": "222bad376f594521",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Теги"
+            }
+          },
+          {
+            "id": "4374f8c73968e4cd",
+            "type": "leaf",
+            "state": {
+              "type": "advanced-tables-toolbar",
+              "state": {},
+              "icon": "lucide-ghost",
+              "title": "advanced-tables-toolbar"
+            }
+          },
+          {
+            "id": "b44bb836ee9fabde",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Obsidian folder/templates/2026.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Структура 2026"
+            }
+          },
+          {
+            "id": "203df8b4a3812621",
+            "type": "leaf",
+            "state": {
+              "type": "todo",
+              "state": {},
+              "icon": "lucide-ghost",
+              "title": "todo"
+            }
+          },
+          {
+            "id": "d4ea325a833959c3",
+            "type": "leaf",
+            "state": {
+              "type": "smart-connections-view",
+              "state": {},
+              "icon": "lucide-ghost",
+              "title": "smart-connections-view"
+            }
+          },
+          {
+            "id": "7539d43549a0ac78",
+            "type": "leaf",
+            "state": {
+              "type": "review-queue-list-view",
+              "state": {},
+              "icon": "SpacedRepIcon",
+              "title": "Очередь заметок на повторение"
+            }
+          },
+          {
+            "id": "bc0a4f96b95b02f4",
+            "type": "leaf",
+            "state": {
+              "type": "copilot-chat-view",
+              "state": {},
+              "icon": "lucide-ghost",
+              "title": "copilot-chat-view"
+            }
+          },
+          {
+            "id": "b7421abd7e1d4010",
+            "type": "leaf",
+            "state": {
+              "type": "todo",
+              "state": {},
+              "icon": "checkmark",
+              "title": "Todo List"
+            }
+          },
+          {
+            "id": "69521114f2e5832c",
+            "type": "leaf",
+            "state": {
+              "type": "review-queue-list-view",
+              "state": {},
+              "icon": "SpacedRepIcon",
+              "title": "Очередь заметок на повторение"
+            }
+          }
+        ],
+        "currentTab": 7
+      }
+    ],
+    "direction": "horizontal",
+    "width": 504.5,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Меню быстрого перехода": false,
+      "graph:Граф": false,
+      "canvas:Создать новый холст": false,
+      "daily-notes:Сегодняшняя заметка": false,
+      "templates:Вставить шаблон": false,
+      "command-palette:Открыть палитру команд": false,
+      "zk-prefixer:Создать заметку с уникальным идентификатором": false,
+      "audio-recorder:Начать/остановить запись": false,
+      "bases:Создать новую базу": false,
+      "copilot:Open Copilot Chat": false,
+      "obsidian-importer:Open Importer": false,
+      "anki-sync-plus:Add/Update cards for all notes of selected folder on Anki": false,
+      "anki-sync-plus:Add/Update card for current note on Anki": false,
+      "anki-sync-plus:Delete card for  current note on Anki": false,
+      "ObsidianAnkiSync:Start Obsidian Anki Sync": false,
+      "omnisearch:Omnisearch": false,
+      "table-editor-obsidian:Advanced Tables Toolbar": false,
+      "llm-test-gen:Test dashboard": false,
+      "pomodoro-timer:Toggle timer panel": false,
+      "obsidian-spaced-repetition:Изучать карточки": false,
+      "templater-obsidian:Templater": false,
+      "obsidian-ankibridge:Sync with Anki": false,
+      "smart-connections:Smart Connections: Open connections view": false,
+      "smart-connections:Smart Connections: Open random connection": false,
+      "smart-lookup:Smart Lookup: Open lookup view": false,
+      "obsidian-textgenerator-plugin:Generate Text!": false,
+      "obsidian-textgenerator-plugin:Text Generator: Templates Packages Manager": false,
+      "periodic-notes:Open today": false
+    }
+  },
+  "active": "7539d43549a0ac78",
+  "lastOpenFiles": [
+    "Obsidian folder/templates/2026.md",
+    "0prime/FROL.md",
+    "daily/2026/Q2/май/W19/2026-Q2-май/07",
+    "Посторить сеть агентов для автоматизации автоматизаций.md",
+    "0prime/00_inbox/copilot/copilot-custom-prompts/Clip Web Page.md",
+    "0prime/00_inbox/2026-04-27-21-26.md",
+    "0prime/raycast_obsidian.md",
+    "0prime/inbox/Без названия.md",
+    "0prime/inbox/Без названия 1.md",
+    "0prime/inbox/2026-05-05.md",
+    "0prime/inbox",
+    "0prime/Test.md",
+    "0prime/Scripts/router.js",
+    "0prime/Scripts",
+    "0prime/2026/здоровье.md",
+    "0prime/2026/Уход за собой.md",
+    "0prime/2026/ПО.md",
+    "0prime/2026/Массаж2.md",
+    "0prime/2026/Массаж.md",
+    "0prime/2026/Лицо.md",
+    "0prime/2026/Без названия.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/цель_дня_фокус.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/Без названия.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/test-YYYY1.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/test-YYYY.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/Inbox.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/2026-05-04.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/2026-05-04-22-08-23.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/2026-05-04-23-00-29.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04/2026-05-04-21-50-16.md",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-04",
+    "0prime/2026/2026-Q2/2026-05/19/2026-05-05",
+    "0prime/2026/2026-Q2/2026-05/18/2026-05-03",
+    "0prime/2026/2026-Q2/2026-05/19",
+    "0prime/2026/2026-Q2/2026-05/18",
+    "0prime/2026/2026-Q2/2026-05",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2387357255_234 - 20260318225607073.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2387357255_234 - 20260318225606898.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_246 - 20260324114628789.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_244 - 20260320001857484.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_243 - 20260320001857313.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_242 - 20260320001857369.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_241 - 20260320001857386.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_240 - 20260320001857353.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_239 - 20260319094647890.jpg",
+    "anki_inbox/2024_03/Telegram/Telegram/photo_2348741074_238 - 20260319094648762.jpg"
+  ]
+}
